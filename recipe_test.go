@@ -55,30 +55,50 @@ func TestParseRecipes(t *testing.T) {
 	}
 }
 
-var fixtures = map[string]mela.RawRecipe{
+var oneMin = time.Minute
+var oneHour = time.Hour
+var twoMin = 2 * time.Minute
+var twoHour = 2 * time.Hour
+
+var fixtures = map[string]struct {
+	ID           string
+	Title        string
+	Link         string
+	Text         string
+	Ingredients  []string
+	Instructions []string
+	Nutrition    string
+	Categories   []string
+
+	Images    []string
+	Yield     uint64
+	PrepTime  *time.Duration
+	CookTime  *time.Duration
+	TotalTime *time.Duration
+}{
 	"a": {
-		RawTitle:        "A title",
-		RawCategories:   []string{"a", "aa", "aaa"},
-		RawYield:        "1",
-		RawLink:         "https://example.com/a",
-		RawIngredients:  "A ingredients",
-		RawText:         "A text",
-		RawPrepTime:     "1m", // time.Duration notation here
-		RawCookTime:     "1h", // time.Duration notation here
-		RawInstructions: "A instructions",
-		RawNutrition:    "A nutrition",
+		Title:        "A title",
+		Categories:   []string{"a", "aa", "aaa"},
+		Yield:        1,
+		Link:         "https://example.com/a",
+		Ingredients:  []string{"A ingredients"},
+		Text:         "A text",
+		PrepTime:     &oneMin,
+		CookTime:     &oneHour,
+		Instructions: []string{"A instructions"},
+		Nutrition:    "A nutrition",
 	},
 	"b": {
-		RawTitle:        "B title",
-		RawCategories:   []string{"b", "bb"},
-		RawYield:        "2",
-		RawLink:         "https://example.com/b",
-		RawIngredients:  "B ingredients",
-		RawText:         "B text",
-		RawPrepTime:     "2m", // time.Duration notation here
-		RawCookTime:     "2h", // time.Duration notation here
-		RawInstructions: "B instructions",
-		RawNutrition:    "B nutrition",
+		Title:        "B title",
+		Categories:   []string{"b", "bb"},
+		Yield:        2,
+		Link:         "https://example.com/b",
+		Ingredients:  []string{"B ingredients"},
+		Text:         "B text",
+		PrepTime:     &twoMin,
+		CookTime:     &twoHour,
+		Instructions: []string{"B instructions"},
+		Nutrition:    "B nutrition",
 	},
 }
 
@@ -101,32 +121,32 @@ func EnsureRecipe(t *testing.T, got mela.Recipe, err error, wantID string) {
 
 	// Simple Fields
 
-	if got.Title() != want.Title() {
-		t.Errorf("For %s, incorrect Recipe Title: want = %s, got = %s", wantID, want.Title(), got.Title())
+	if got.Title() != want.Title {
+		t.Errorf("For %s, incorrect Recipe Title: want = %s, got = %s", wantID, want.Title, got.Title())
 	}
 
-	if got.Link() != want.Link() {
-		t.Errorf("For %s, incorrect Recipe Link: want = %s, got = %s", wantID, want.Link(), got.Link())
+	if got.Link() != want.Link {
+		t.Errorf("For %s, incorrect Recipe Link: want = %s, got = %s", wantID, want.Link, got.Link())
 	}
 
-	if got.Text() != want.Text() {
-		t.Errorf("For %s, incorrect Recipe Text: want = %s, got = %s", wantID, want.Text(), got.Text())
+	if got.Text() != want.Text {
+		t.Errorf("For %s, incorrect Recipe Text: want = %s, got = %s", wantID, want.Text, got.Text())
 	}
 
-	if got.Ingredients() != want.Ingredients() {
-		t.Errorf("For %s, incorrect Recipe Ingredients: want = %s, got = %s", wantID, want.Ingredients(), got.Ingredients())
+	if !reflect.DeepEqual(got.Ingredients(), want.Ingredients) {
+		t.Errorf("For %s, incorrect Recipe Ingredients: want = %s, got = %s", wantID, want.Ingredients, got.Ingredients())
 	}
 
-	if got.Instructions() != want.Instructions() {
-		t.Errorf("For %s, incorrect Recipe Instructions: want = %s, got = %s", wantID, want.Instructions(), got.Instructions())
+	if !reflect.DeepEqual(got.Instructions(), want.Instructions) {
+		t.Errorf("For %s, incorrect Recipe Instructions: want = %s, got = %s", wantID, want.Instructions, got.Instructions())
 	}
 
-	if got.Nutrition() != want.Nutrition() {
-		t.Errorf("For %s, incorrect Recipe Nutrition: want = %s, got = %s", wantID, want.Nutrition(), got.Nutrition())
+	if got.Nutrition() != want.Nutrition {
+		t.Errorf("For %s, incorrect Recipe Nutrition: want = %s, got = %s", wantID, want.Nutrition, got.Nutrition())
 	}
 
-	if !reflect.DeepEqual(got.Categories(), want.Categories()) {
-		t.Errorf("For %s, incorrect Recipe Categories: want = %s, got = %s", wantID, want.Categories(), got.Categories())
+	if !reflect.DeepEqual(got.Categories(), want.Categories) {
+		t.Errorf("For %s, incorrect Recipe Categories: want = %v, got = %v", wantID, want.Categories, got.Categories())
 	}
 
 	// Images
@@ -149,64 +169,32 @@ func EnsureRecipe(t *testing.T, got mela.Recipe, err error, wantID string) {
 		t.Errorf("For %s, Recipe Image count incorrect: want = 1, got = %d", wantID, imgCount)
 	}
 
-	// Simple parsers: Yield
-
-	wantYield, wantErr := want.Yield()
-	if wantErr != nil {
-		t.Errorf("For %s, yield fixture incorrect: %v", wantID, err)
-		return
-	}
-
 	gotYield, err := got.Yield()
 	if err != nil {
 		t.Errorf("For %s, could not parse Recipe Yield: %v", wantID, err)
-	} else if gotYield != wantYield {
-		t.Errorf("For %s, incorrect Recipe Yield: want = %d, got = %d", wantID, wantYield, gotYield)
-	}
-
-	// Simple parsers: PrepTime
-
-	wantPrepTime, wantErr := want.PrepTime()
-	if wantErr != nil {
-		t.Errorf("For %s, PrepTime fixture incorrect: %v", wantID, err)
-		return
+	} else if gotYield != want.Yield {
+		t.Errorf("For %s, incorrect Recipe Yield: want = %d, got = %d", wantID, want.Yield, gotYield)
 	}
 
 	gotPrepTime, err := got.PrepTime()
 	if err != nil {
 		t.Errorf("For %s, could not parse Recipe PrepTime: %v", wantID, err)
-	} else if durationsSame(wantPrepTime, gotPrepTime) {
-		t.Errorf("For %s, incorrect Recipe PrepTime: want = %v, got = %v", wantID, wantPrepTime, gotPrepTime)
-	}
-
-	// Simple parsers: CookTime
-
-	wantCookTime, wantErr := want.CookTime()
-	if wantErr != nil {
-		t.Errorf("For %s, CookTime fixture incorrect: %v", wantID, err)
-		return
+	} else if durationsSame(want.PrepTime, gotPrepTime) {
+		t.Errorf("For %s, incorrect Recipe PrepTime: want = %v, got = %v", wantID, want.PrepTime, gotPrepTime)
 	}
 
 	gotCookTime, err := got.CookTime()
 	if err != nil {
 		t.Errorf("For %s, could not parse Recipe CookTime: %v", wantID, err)
-	} else if durationsSame(wantCookTime, gotCookTime) {
-		t.Errorf("For %s, incorrect Recipe CookTime: want = %v, got = %v", wantID, wantCookTime, gotCookTime)
-	}
-
-	// Simple parsers: TotalTime
-
-	wantTotalTime, wantErr := want.TotalTime()
-	if wantErr != nil {
-		t.Errorf("For %s, TotalTime fixture incorrect: %v", wantID, err)
-		return
+	} else if durationsSame(want.CookTime, gotCookTime) {
+		t.Errorf("For %s, incorrect Recipe CookTime: want = %v, got = %v", wantID, want.CookTime, gotCookTime)
 	}
 
 	gotTotalTime, err := got.TotalTime()
 	if err != nil {
 		t.Errorf("For %s, could not parse Recipe TotalTime: %v", wantID, err)
-	} else if durationsSame(wantTotalTime, gotTotalTime) {
-		t.Errorf("For %s, incorrect Recipe TotalTime: want = %v, got = %v", wantID, wantTotalTime, gotTotalTime)
+	} else if durationsSame(want.TotalTime, gotTotalTime) {
+		t.Errorf("For %s, incorrect Recipe TotalTime: want = %v, got = %v", wantID, want.TotalTime, gotTotalTime)
 	}
 }
 
