@@ -39,6 +39,8 @@ func Test_durationGuesser(t *testing.T) {
 		{"2 min.", &min2, false},
 		{"2 mins", &min2, false},
 		{"2 mins.", &min2, false},
+
+		{"nope", nil, true},
 	}
 	for _, test := range tests {
 		got, err := durationGuesser(test.input)

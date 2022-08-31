@@ -6,6 +6,7 @@ import (
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +14,8 @@ import (
 
 type Recipe interface {
 	String() string
+	Book() *Book
+	SetBook(isbn string, page uint) (Recipe, error)
 
 	ID() string
 	Title() string
@@ -28,6 +31,11 @@ type Recipe interface {
 	PrepTime() (*time.Duration, error)
 	CookTime() (*time.Duration, error)
 	TotalTime() (*time.Duration, error)
+}
+
+type Book struct {
+	ISBN13 string
+	Page   uint
 }
 
 type RawRecipe struct {
@@ -48,6 +56,35 @@ type RawRecipe struct {
 }
 
 func (r RawRecipe) String() string { return fmt.Sprintf("Recipe for: %s", r.RawTitle) }
+
+var isbnUrnParser = regexp.MustCompile("^urn:isbn:([0-9]{13})#page=([0-9]+)$")
+
+func (r RawRecipe) Book() *Book {
+	m := isbnUrnParser.FindStringSubmatch(r.RawID)
+	fmt.Println(m)
+	if len(m) == 0 {
+		return nil
+	}
+
+	isbn13 := m[1]
+	// Will always be a number, because regexp
+	page, _ := strconv.Atoi(m[2])
+
+	return &Book{
+		ISBN13: isbn13,
+		Page:   uint(page),
+	}
+}
+
+func (r RawRecipe) SetBook(isbn10or13 string, page uint) (Recipe, error) {
+	isbn13, err := validateISBN(isbn10or13)
+	if err != nil {
+		return nil, err
+	}
+
+	r.RawID = fmt.Sprintf("urn:isbn:%s#page=%d", isbn13, page)
+	return r, nil
+}
 
 func (r RawRecipe) Images(onImage func(image.Image, error)) {
 	for _, img64 := range r.RawImages {
