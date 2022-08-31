@@ -19,12 +19,12 @@ if err != nil {
 }
 
 for i, r := range recipes {
-  fmt.Printf("Recipe #%d title: %s\n", i + 1, r.Title())
+  fmt.Printf("Recipe #%d title: %s\n", i, r.Title())
 }
 
 // Output:
-// Recipe #1 title: B title
-// Recipe #2 title: A title
+// Recipe #0 title: B title
+// Recipe #1 title: A title
 ```
 
 _Note: the order of the recipes is defined on the structure of the underlying zip file, which isn't necessarily alphabetical, or the sort order of the recipes when exported._
