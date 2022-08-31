@@ -61,7 +61,6 @@ var isbnUrnParser = regexp.MustCompile("^urn:isbn:([0-9]{13})#page=([0-9]+)$")
 
 func (r RawRecipe) Book() *Book {
 	m := isbnUrnParser.FindStringSubmatch(r.RawID)
-	fmt.Println(m)
 	if len(m) == 0 {
 		return nil
 	}
