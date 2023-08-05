@@ -47,8 +47,8 @@ func Open(filename string) ([]Recipe, error) {
 	}
 
 	var recipes []Recipe
-	err = ParseRecipes(f, fs.Size(), func(r Recipe, err error) {
-		if err == nil {
+	err = ParseRecipes(f, fs.Size(), func(r Recipe, inErr error) {
+		if inErr == nil {
 			recipes = append(recipes, r)
 		}
 	})
@@ -62,7 +62,7 @@ func ParseRecipe(r io.Reader) (Recipe, error) {
 
 	dec := json.NewDecoder(r)
 	err := dec.Decode(&recipe)
-	return recipe, err
+	return &recipe, err
 }
 
 // ParseRecipe parses a known .melarecipes collection file into a stream of Recipe-compatible structs, calling the onRecipe func for each, as it is parsed
