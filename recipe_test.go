@@ -69,6 +69,7 @@ var fixtures = map[string]struct {
 	Instructions []string
 	Nutrition    string
 	Categories   []string
+	Notes        string
 
 	Images    []string
 	Yield     uint64
@@ -87,6 +88,7 @@ var fixtures = map[string]struct {
 		CookTime:     &oneHour,
 		Instructions: []string{"A instructions"},
 		Nutrition:    "A nutrition",
+		Notes:        "A notes",
 	},
 	"b": {
 		Title:        "B title",
@@ -99,6 +101,7 @@ var fixtures = map[string]struct {
 		CookTime:     &twoHour,
 		Instructions: []string{"B instructions"},
 		Nutrition:    "B nutrition",
+		Notes:        "B notes",
 	},
 }
 
@@ -143,6 +146,10 @@ func EnsureRecipe(t *testing.T, got mela.Recipe, err error, wantID string) {
 
 	if got.Nutrition() != want.Nutrition {
 		t.Errorf("For %s, incorrect Recipe Nutrition: want = %s, got = %s", wantID, want.Nutrition, got.Nutrition())
+	}
+
+	if got.Notes() != want.Notes {
+		t.Errorf("For %s, incorrect Recipe Notes: want = %s, got = %s", wantID, want.Notes, got.Notes())
 	}
 
 	if !reflect.DeepEqual(got.Categories(), want.Categories) {

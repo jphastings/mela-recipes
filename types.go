@@ -21,6 +21,7 @@ type Recipe interface {
 	Instructions() []string
 	Nutrition() string
 	Categories() []string
+	Notes() string
 
 	Images(func(image.Image, error))
 	Yield() (uint64, error)
@@ -44,6 +45,7 @@ type RawRecipe struct {
 	RawInstructions string   `json:"instructions"`
 	RawNutrition    string   `json:"nutrition"`
 	RawCategories   []string `json:"categories"`
+	RawNotes        string   `json:"notes"`
 
 	RawImages    []string `json:"images"`
 	RawYield     string   `json:"yield"`
@@ -62,6 +64,7 @@ func (r *RawRecipe) Categories() []string   { return r.RawCategories }
 func (r *RawRecipe) Ingredients() []string  { return strings.Split(r.RawIngredients, "\n") }
 func (r *RawRecipe) Instructions() []string { return strings.Split(r.RawInstructions, "\n") }
 func (r *RawRecipe) Nutrition() string      { return r.RawNutrition }
+func (r *RawRecipe) Notes() string          { return r.RawNotes }
 
 func (r *RawRecipe) Yield() (uint64, error)             { return strconv.ParseUint(r.RawYield, 10, 64) }
 func (r *RawRecipe) PrepTime() (*time.Duration, error)  { return durationGuesser(r.RawPrepTime) }

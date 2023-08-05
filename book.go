@@ -7,7 +7,20 @@ import (
 )
 
 func (r *RawRecipe) Book() *Book {
-	nameString := strings.SplitN(r.RawID, "#", 2)
+	if book := bookFromID(r.RawID); book != nil {
+		return book
+	}
+
+	if book, newNotes := bookFromNotes(r.RawNotes); book != nil {
+		r.RawNotes = newNotes
+		return book
+	}
+
+	return nil
+}
+
+func bookFromID(id string) *Book {
+	nameString := strings.SplitN(id, "#", 2)
 
 	assignedName := strings.SplitN(nameString[0], ":", 3)
 	if len(assignedName) < 3 || assignedName[0] != "urn" || assignedName[1] != "isbn" {
@@ -55,6 +68,10 @@ func (r *RawRecipe) Book() *Book {
 		Pages:        pages,
 		RecipeNumber: uint(recipeNumber),
 	}
+}
+
+func bookFromNotes(notes string) (*Book, string) {
+	return nil, notes
 }
 
 func (r *RawRecipe) SetBook(isbn10or13 string, pages Pages, recipeNumber uint) error {
