@@ -28,6 +28,9 @@ type Recipe interface {
 	PrepTime() (*time.Duration, error)
 	CookTime() (*time.Duration, error)
 	TotalTime() (*time.Duration, error)
+
+	// Standardizes the recipe in-place and returns self for chaining
+	Standardize() Recipe
 }
 
 type Book struct {

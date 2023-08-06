@@ -12,19 +12,21 @@ import (
 )
 
 func TestParseRecipe(t *testing.T) {
-	f, err := os.Open("fixtures/a.melarecipe")
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	for _, fixtureNum := range []string{"a", "b", "c"} {
+		f, err := os.Open("fixtures/" + fixtureNum + ".melarecipe")
+		if err != nil {
+			t.Error(err)
+			return
+		}
 
-	recipe, err := mela.ParseRecipe(f)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+		recipe, err := mela.ParseRecipe(f)
+		if err != nil {
+			t.Error(err)
+			return
+		}
 
-	EnsureRecipe(t, recipe, err, "a")
+		EnsureRecipe(t, recipe.Standardize(), err, fixtureNum)
+	}
 }
 
 func TestParseRecipes(t *testing.T) {
@@ -59,8 +61,10 @@ var oneMin = time.Minute
 var oneHour = time.Hour
 var twoMin = 2 * time.Minute
 var twoHour = 2 * time.Hour
+var thirtyMin = 30 * time.Minute
+var threeHour = 3 * time.Hour
 
-var fixtures = map[string]struct {
+var wantFixtures = map[string]struct {
 	ID           string
 	Title        string
 	Link         string
@@ -78,6 +82,7 @@ var fixtures = map[string]struct {
 	TotalTime *time.Duration
 }{
 	"a": {
+		ID:           "a",
 		Title:        "A title",
 		Categories:   []string{"a", "aa", "aaa"},
 		Yield:        1,
@@ -91,6 +96,7 @@ var fixtures = map[string]struct {
 		Notes:        "A notes",
 	},
 	"b": {
+		ID:           "b",
 		Title:        "B title",
 		Categories:   []string{"b", "bb"},
 		Yield:        2,
@@ -103,6 +109,20 @@ var fixtures = map[string]struct {
 		Nutrition:    "B nutrition",
 		Notes:        "B notes",
 	},
+	"c": {
+		ID:           "urn:isbn:9780198526636#pages=42&recipe=3",
+		Title:        "C title",
+		Categories:   []string{"c", "cc"},
+		Yield:        3,
+		Link:         "https://example.com/c",
+		Ingredients:  []string{"C ingredients"},
+		Text:         "C text",
+		PrepTime:     &threeHour,
+		CookTime:     &thirtyMin,
+		Instructions: []string{"C instructions"},
+		Nutrition:    "C nutrition",
+		Notes:        "C Notes",
+	},
 }
 
 func EnsureRecipe(t *testing.T, got mela.Recipe, err error, wantID string) {
@@ -111,18 +131,17 @@ func EnsureRecipe(t *testing.T, got mela.Recipe, err error, wantID string) {
 		return
 	}
 
-	if got.ID() != wantID {
-		t.Errorf("Incorrect Recipe ID: want = %s, got = %s", wantID, got.ID())
-		return
-	}
-
-	want, ok := fixtures[wantID]
+	want, ok := wantFixtures[wantID]
 	if !ok {
 		// Only test deep if there's a fixture for it
 		return
 	}
 
 	// Simple Fields
+
+	if got.ID() != want.ID {
+		t.Errorf("For %s, incorrect ID: want = %s, got = %s", wantID, want.Title, got.Title())
+	}
 
 	if got.Title() != want.Title {
 		t.Errorf("For %s, incorrect Recipe Title: want = %s, got = %s", wantID, want.Title, got.Title())
@@ -149,7 +168,7 @@ func EnsureRecipe(t *testing.T, got mela.Recipe, err error, wantID string) {
 	}
 
 	if got.Notes() != want.Notes {
-		t.Errorf("For %s, incorrect Recipe Notes: want = %s, got = %s", wantID, want.Notes, got.Notes())
+		t.Errorf("For %s, incorrect Recipe Notes: want = %#v, got = %#v", wantID, want.Notes, got.Notes())
 	}
 
 	if !reflect.DeepEqual(got.Categories(), want.Categories) {
