@@ -7,9 +7,19 @@ import (
 	"strings"
 )
 
+var kebabCaser = regexp.MustCompile(`[^a-z0-9]+`)
+
 func (r *Recipe) Standardize() error {
+	r.Filename = kebabCaser.ReplaceAllString(strings.ToLower(r.Title), "-")
+
 	if err := bookFromNotes(r); err != nil {
 		return err
+	}
+
+	for _, i := range r.Images {
+		if err := i.Optimize(); err != nil {
+			return err
+		}
 	}
 
 	return nil

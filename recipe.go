@@ -4,11 +4,14 @@ import (
 	"archive/zip"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 )
 
 type Recipe struct {
+	Filename     string            `json:"-"`
 	ID           string            `json:"id"`
 	Title        string            `json:"title"`
 	Link         string            `json:"link"`
@@ -57,6 +60,7 @@ func Open(filename string) ([]*Recipe, error) {
 
 	if magic[0] == '{' {
 		r, err := ParseRecipe(f)
+		r.Filename = withoutExt(filename)
 		return []*Recipe{r}, err
 	}
 
@@ -72,6 +76,11 @@ func Open(filename string) ([]*Recipe, error) {
 	})
 
 	return recipes, err
+}
+
+func withoutExt(name string) string {
+	ext := filepath.Ext(name)
+	return name[0 : len(name)-len(ext)]
 }
 
 // ParseRecipe parses a known single .melarecipe file into a Recipe-compatible struct
@@ -97,8 +106,32 @@ func ParseRecipes(r io.ReaderAt, size int64, onRecipe func(*Recipe, error)) erro
 		}
 		defer rr.Close()
 
-		onRecipe(ParseRecipe(rr))
+		if recipe, err := ParseRecipe(rr); err != nil {
+			onRecipe(nil, err)
+		} else {
+			recipe.Filename = withoutExt(zf.Name)
+			onRecipe(recipe, nil)
+		}
 	}
 
 	return nil
+}
+
+func (r *Recipe) Save(dir string) (string, error) {
+	data, err := json.Marshal(r)
+	if err != nil {
+		return "", fmt.Errorf("unable to marshal recipe: %w", err)
+	}
+
+	destination := filepath.Join(dir, r.Filename+".melarecipe")
+	f, err := os.Create(destination)
+	if err != nil {
+		return "", fmt.Errorf("unable to create recipe file: %w", err)
+	}
+
+	if _, err := f.Write(data); err != nil {
+		return "", fmt.Errorf("unable to write data to recipe file: %w", err)
+	}
+
+	return destination, nil
 }
