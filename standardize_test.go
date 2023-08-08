@@ -18,11 +18,11 @@ func TestRawRecipe_Standardize(t *testing.T) {
 	tests := []test{
 		{"Just ISBN", "ISBN: 9782019453411", "_9782019453411_", &Book{ISBN13: "9782019453411"}},
 		{"Just ISBN; simple", "_9782019453411_", "_9782019453411_", &Book{ISBN13: "9782019453411"}},
-		{"ISBN and pages", "isbn: 978-3-16-148410-0\npages: 52", "_9782019453411, p.52_", &Book{ISBN13: "9783161484100", Pages: Pages{PageRange{"52"}}}},
+		{"ISBN and pages", "isbn: 978-3-16-148410-0\npages: 52", "_9783161484100, p.52_", &Book{ISBN13: "9783161484100", Pages: Pages{PageRange{"52"}}}},
 		{"ISBN and pages; simple", "_9783161484100, p.52_", "_9783161484100, p.52_", &Book{ISBN13: "9783161484100", Pages: Pages{PageRange{"52"}}}},
 		{"ISBN, pages, recipe", "ISBN 978-3-16-148410-0\nPages 52\nRecipe 2", "_9783161484100, p.52, 2nd_", &Book{ISBN13: "9783161484100", Pages: Pages{PageRange{"52"}}, RecipeNumber: 2}},
 		{"ISBN, pages, recipe; simple", "_9783161484100, p.52, 2nd_", "_9783161484100, p.52, 2nd_", &Book{ISBN13: "9783161484100", Pages: Pages{PageRange{"52"}}, RecipeNumber: 2}},
-		{"Recipe, no pages", "ISBN: 978-3-16-148410-0\nRecipe: 2", "Recipe: 2\n\n_9783161484100, p.52_", &Book{ISBN13: "9783161484100"}},
+		{"Recipe, no pages", "ISBN: 978-3-16-148410-0\nRecipe: 2", "Recipe: 2\n\n_9783161484100_", &Book{ISBN13: "9783161484100"}},
 
 		{"Text before", "Some other note.\n\nISBN: 9782019453411", "Some other note.\n\n_9782019453411_", &Book{ISBN13: "9782019453411"}},
 		{"Text after", "ISBN: 9782019453411\n\nSome other note.", "Some other note.\n\n_9782019453411_", &Book{ISBN13: "9782019453411"}},
@@ -33,24 +33,24 @@ func TestRawRecipe_Standardize(t *testing.T) {
 		{"No details", "Some note mentioning an ISBN and pages and recipe.", "Some note mentioning an ISBN and pages and recipe.", nil},
 	}
 
+	fallbackBook := &Book{ISBN13: "9781786699503"}
+
 	for _, test := range tests {
-		r := (&RawRecipe{RawNotes: test.notes}).Standardize()
+		r := &Recipe{ID: "urn:isbn:9781786699503", Notes: test.notes}
+		if err := r.Standardize(); err != nil {
+			t.Errorf("Error standardizing for '%s': %v", test.name, err)
+		}
+
+		if test.wantBook == nil {
+			test.wantBook = fallbackBook
+		}
 
 		if !reflect.DeepEqual(test.wantBook, r.Book()) {
 			t.Errorf("Incorrect book details for '%s': want = %#v, got = %#v", test.name, test.wantBook, r.Book())
 		}
-		if r.Notes() != test.wantNotes {
-			t.Errorf("Incorrect book notes for '%s': want = %#v, got = %#v", test.name, test.wantNotes, r.Notes())
+		if r.Notes != test.wantNotes {
+			t.Errorf("Incorrect book notes for '%s': want = %#v, got = %#v", test.name, test.wantNotes, r.Notes)
 		}
 	}
 
-	r := (&RawRecipe{
-		RawID:    "urn:isbn:9782019453411",
-		RawNotes: "Some note.\n\nISBN: 9783161484100",
-	}).Standardize()
-
-	wantISBN := "9783161484100"
-	if r.Book().ISBN13 != wantISBN {
-		t.Errorf("Book details in notes incorrectly ignored (when ID is already ISBN): want = %#v, got = %#v", wantISBN, r.Book().ISBN13)
-	}
 }

@@ -7,25 +7,24 @@ import (
 	"strings"
 )
 
-func (r *RawRecipe) Standardize() Recipe {
-	book, notes := bookFromNotes(r.RawNotes)
-	if book != nil {
-		r.SetBook(book.ISBN13, book.Pages, book.RecipeNumber)
-		r.RawNotes = notes
+func (r *Recipe) Standardize() error {
+	if err := bookFromNotes(r); err != nil {
+		return err
 	}
-	return r
+
+	return nil
 }
 
 var extractor = regexp.MustCompile(`(?i)(\s*)((?:isbn:? ?|_)([0-9X-]+)\r?\n?((?:, p.|pages?:? ?)([^_\s,]+)\r?\n?((?:recipe:? ?|, )?(\d+)(?:[a-z]{2})?\r?\n?)?)?)_?(\s*)`)
 
-func bookFromNotes(notes string) (*Book, string) {
-	matches := extractor.FindStringSubmatch(notes)
+func bookFromNotes(r *Recipe) error {
+	matches := extractor.FindStringSubmatch(r.Notes)
 	if matches == nil {
-		return nil, notes
+		return nil
 	}
 
 	var newNotes string
-	around := strings.SplitN(notes, matches[0], 2)
+	around := strings.SplitN(r.Notes, matches[0], 2)
 	if around[0] == "" {
 		newNotes = around[1]
 		if around[1] != "" {
@@ -39,7 +38,7 @@ func bookFromNotes(notes string) (*Book, string) {
 
 	isbn13, err := validateISBN(matches[3])
 	if err != nil {
-		return nil, notes
+		return err
 	}
 
 	newNotes += fmt.Sprintf("_%s", isbn13)
@@ -50,7 +49,7 @@ func bookFromNotes(notes string) (*Book, string) {
 	if matches[5] != "" {
 		pages, err = ParsePages(matches[5])
 		if err != nil {
-			return nil, notes
+			return err
 		}
 
 		newNotes += fmt.Sprintf(", p.%s", pages.String())
@@ -59,7 +58,7 @@ func bookFromNotes(notes string) (*Book, string) {
 	if matches[7] != "" && pages != nil {
 		recipeNumber, err = strconv.ParseUint(matches[7], 10, 64)
 		if err != nil {
-			return nil, notes
+			return err
 		}
 
 		newNotes += fmt.Sprintf(", %s", ordinal(recipeNumber))
@@ -67,13 +66,12 @@ func bookFromNotes(notes string) (*Book, string) {
 
 	newNotes += "_"
 
-	book := &Book{
-		ISBN13:       isbn13,
-		Pages:        pages,
-		RecipeNumber: uint(recipeNumber),
+	if err := r.SetBook(isbn13, pages, uint(recipeNumber)); err != nil {
+		return err
 	}
+	r.Notes = newNotes
 
-	return book, newNotes
+	return nil
 }
 
 func ordinal(n uint64) string {

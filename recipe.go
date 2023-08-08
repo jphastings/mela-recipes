@@ -8,6 +8,24 @@ import (
 	"os"
 )
 
+type Recipe struct {
+	ID           string            `json:"id"`
+	Title        string            `json:"title"`
+	Link         string            `json:"link"`
+	Text         string            `json:"text"`
+	Ingredients  SectionedSequence `json:"ingredients"`
+	Instructions SectionedSequence `json:"instructions"`
+	Nutrition    string            `json:"nutrition"`
+	Categories   []string          `json:"categories"`
+	Notes        string            `json:"notes"`
+
+	Images    []ImageBytes  `json:"images"`
+	Yield     PeopleCount   `json:"yield"`
+	PrepTime  MaybeDuration `json:"prepTime"`
+	CookTime  MaybeDuration `json:"cookTime"`
+	TotalTime MaybeDuration `json:"totalTime"`
+}
+
 var ErrInvalidMelaFile = errors.New("given file is neither a melarecipe nor a melarecipes file")
 var ErrInvalidMelaRecipeFile = errors.New("given file is not a melarecipe file")
 var ErrInvalidMelaRecipesFile = errors.New("given file is not a melarecipes file")
@@ -17,7 +35,7 @@ const ZipFileMagicBytes = "PK\x03\x04"
 // Open is a smart, file-system based function for opening a .melarecipe or .melarecipes file from disk.
 // For simplicity's sake, it will silently ignore any invalid recipes within a .melarecipes file, use ParseRecipes for
 // greater control.
-func Open(filename string) ([]Recipe, error) {
+func Open(filename string) ([]*Recipe, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -39,15 +57,15 @@ func Open(filename string) ([]Recipe, error) {
 
 	if magic[0] == '{' {
 		r, err := ParseRecipe(f)
-		return []Recipe{r}, err
+		return []*Recipe{r}, err
 	}
 
 	if string(magic) != ZipFileMagicBytes {
 		return nil, ErrInvalidMelaFile
 	}
 
-	var recipes []Recipe
-	err = ParseRecipes(f, fs.Size(), func(r Recipe, inErr error) {
+	var recipes []*Recipe
+	err = ParseRecipes(f, fs.Size(), func(r *Recipe, inErr error) {
 		if inErr == nil {
 			recipes = append(recipes, r)
 		}
@@ -57,8 +75,8 @@ func Open(filename string) ([]Recipe, error) {
 }
 
 // ParseRecipe parses a known single .melarecipe file into a Recipe-compatible struct
-func ParseRecipe(r io.Reader) (Recipe, error) {
-	var recipe RawRecipe
+func ParseRecipe(r io.Reader) (*Recipe, error) {
+	var recipe Recipe
 
 	dec := json.NewDecoder(r)
 	err := dec.Decode(&recipe)
@@ -66,7 +84,7 @@ func ParseRecipe(r io.Reader) (Recipe, error) {
 }
 
 // ParseRecipe parses a known .melarecipes collection file into a stream of Recipe-compatible structs, calling the onRecipe func for each, as it is parsed
-func ParseRecipes(r io.ReaderAt, size int64, onRecipe func(Recipe, error)) error {
+func ParseRecipes(r io.ReaderAt, size int64, onRecipe func(*Recipe, error)) error {
 	zr, err := zip.NewReader(r, size)
 	if err != nil {
 		return err

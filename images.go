@@ -1,18 +1,11 @@
 package mela
 
 import (
-	"encoding/base64"
-	"image"
-	_ "image/jpeg"
-	_ "image/png"
-	"strings"
+	"fmt"
 )
 
-func (r *RawRecipe) Images(onImage func(image.Image, error)) {
-	for _, img64 := range r.RawImages {
-		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(img64))
+type ImageBytes []byte
 
-		img, _, err := image.Decode(dec)
-		onImage(img, err)
-	}
+func (i ImageBytes) Optimize() error {
+	return fmt.Errorf("not implemented")
 }

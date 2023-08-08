@@ -37,7 +37,7 @@ func TestRawRecipe_Book(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		got := (&RawRecipe{RawID: test.id}).Book()
+		got := (&Recipe{ID: test.id}).Book()
 
 		if !reflect.DeepEqual(test.want, got) {
 			t.Errorf("Incorrect book details for '%s': want = %#v, got = %#v", test.name, test.want, got)
@@ -67,7 +67,7 @@ func TestRawRecipe_SetBook(t *testing.T) {
 
 	for _, test := range tests {
 
-		r := &RawRecipe{}
+		r := &Recipe{}
 		err := r.SetBook(test.isbn, test.pages, test.index)
 
 		if test.wantErr {
@@ -82,8 +82,8 @@ func TestRawRecipe_SetBook(t *testing.T) {
 			continue
 		}
 
-		if r.ID() != test.wantID {
-			t.Errorf("Incorrect book ID for %s: want = %s, got = %s", test.isbn, test.wantID, r.ID())
+		if r.ID != test.wantID {
+			t.Errorf("Incorrect book ID for %s: want = %s, got = %s", test.isbn, test.wantID, r.ID)
 		}
 	}
 }

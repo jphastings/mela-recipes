@@ -5,12 +5,14 @@ import (
 	"time"
 )
 
-func durationGuesser(in string) (*time.Duration, error) {
-	if in == "" {
+type MaybeDuration string
+
+func (m MaybeDuration) Parse() (*time.Duration, error) {
+	if m == "" {
 		return nil, nil
 	}
 
-	in = strings.ReplaceAll(in, "hours", "h")
+	in := strings.ReplaceAll(string(m), "hours", "h")
 	in = strings.ReplaceAll(in, "hour", "h")
 	in = strings.ReplaceAll(in, "mins", "m")
 	in = strings.ReplaceAll(in, "min", "m")

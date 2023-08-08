@@ -5,9 +5,9 @@ import (
 	"time"
 )
 
-func Test_durationGuesser(t *testing.T) {
+func Test_Parse(t *testing.T) {
 	type test struct {
-		input   string
+		input   MaybeDuration
 		want    *time.Duration
 		wantErr bool
 	}
@@ -43,7 +43,7 @@ func Test_durationGuesser(t *testing.T) {
 		{"nope", nil, true},
 	}
 	for _, test := range tests {
-		got, err := durationGuesser(test.input)
+		got, err := test.input.Parse()
 		if err != nil {
 			if !test.wantErr {
 				t.Errorf("Expected no error, got = %v", err)

@@ -6,8 +6,14 @@ import (
 	"strings"
 )
 
-func (r *RawRecipe) Book() *Book {
-	nameString := strings.SplitN(r.RawID, "#", 2)
+type Book struct {
+	ISBN13       string
+	Pages        Pages
+	RecipeNumber uint
+}
+
+func (r *Recipe) Book() *Book {
+	nameString := strings.SplitN(r.ID, "#", 2)
 
 	assignedName := strings.SplitN(nameString[0], ":", 3)
 	if len(assignedName) < 3 || assignedName[0] != "urn" || assignedName[1] != "isbn" {
@@ -57,17 +63,17 @@ func (r *RawRecipe) Book() *Book {
 	}
 }
 
-func (r *RawRecipe) SetBook(isbn10or13 string, pages Pages, recipeNumber uint) error {
+func (r *Recipe) SetBook(isbn10or13 string, pages Pages, recipeNumber uint) error {
 	isbn13, err := validateISBN(isbn10or13)
 	if err != nil {
 		return err
 	}
 
-	r.RawID = fmt.Sprintf("urn:isbn:%s", isbn13)
+	r.ID = fmt.Sprintf("urn:isbn:%s", isbn13)
 	if pages != nil {
-		r.RawID += fmt.Sprintf("#pages=%s", pages.String())
+		r.ID += fmt.Sprintf("#pages=%s", pages.String())
 		if recipeNumber > 0 {
-			r.RawID += fmt.Sprintf("&recipe=%d", recipeNumber)
+			r.ID += fmt.Sprintf("&recipe=%d", recipeNumber)
 		}
 	}
 
