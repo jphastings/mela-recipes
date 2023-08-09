@@ -6,6 +6,8 @@ import (
 	"image/jpeg"
 	_ "image/png"
 
+	_ "golang.org/x/image/webp"
+
 	"golang.org/x/image/draw"
 )
 
@@ -23,7 +25,7 @@ func (i B64Image) OptimizeWithConfig(maxWidth, maxHeight int) (B64Image, error) 
 
 	var wasResized bool
 	img, wasResized = resizeImage(img, maxWidth, maxHeight)
-	if !wasResized && imgType == "jpeg" {
+	if !wasResized && (imgType == "jpeg" || imgType == "webp") {
 		return i, nil
 	}
 
