@@ -19,7 +19,7 @@ if err != nil {
 }
 
 for i, r := range recipes {
-  fmt.Printf("Recipe #%d title: %s\n", i, r.Title())
+  fmt.Printf("Recipe #%d title: %s\n", i, r.Title)
 }
 
 // Output:
@@ -45,7 +45,7 @@ if setErr != nil {
   log.Fatalf("Invalid Book details given: %v\n", err)
 }
 
-fmt.Println("ID:", r.ID())
+fmt.Println("ID:", r.ID)
 fmt.Println("ISBN:", r.Book().ISBN13)
 fmt.Println("Page numbers:", r.Book().Pages)
 fmt.Println("Recipe number:", r.Book().RecipeNumber)
@@ -64,11 +64,11 @@ This library includes backwards-compatible extensions to the [Mela file format](
 
 ### ISBN Extension
 
-For recipes that have been scanned or imported from books, the `id` field of the recipe can be set to an ISBN URN with optional page and recipe-number-on-page references. This is invisible to users of `.recipe`/`.recipes` files, but provides useful information for cataloguing.
+For recipes that have been scanned or imported from books, the `id` field of the recipe can be set to an ISBN URN with optional page and recipe-number-on-page references. This is invisible to users of `.melarecipe`/`.melarecipes` files, but provides useful information for cataloguing.
 
 For example, the second recipe on page 42 of the book with ISBN-13 `9781234567897` (which would be ISBN-10 `123456789X`) would have an ID of `urn:isbn:9781234567897#pages=42&recipe=1`.
 
-Any `.recipe` that has an `id` which is a URN meeting the [RFC-3187 spec](https://www.rfc-editor.org/rfc/rfc3187.txt) will be interpreted as having come from a book.
+Any `.melarecipe` that has an `id` which is a URN meeting the [RFC-3187 spec](https://www.rfc-editor.org/rfc/rfc3187.txt) will be interpreted as having come from a book.
 
 If that URN includes a valid `pages` f-component (see [RFC-8141§2.3](https://www.ietf.org/rfc/rfc8141.html#section-2.3.3)), then the recipe will be interpreted as being imported from from the page or pages labelled with the specific page numbers.
 
