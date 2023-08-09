@@ -1,59 +1,55 @@
 package mela
 
 import (
-	"github.com/h2non/bimg"
+	"bytes"
+	"image"
+	"image/jpeg"
+	_ "image/png"
+
+	"golang.org/x/image/draw"
 )
 
-type ImageBytes []byte
+type B64Image []byte
 
-func (i ImageBytes) Optimize() error {
-	return i.OptimizeWithConfig(1024, 1024, []bimg.ImageType{bimg.WEBP})
+func (i B64Image) Optimize() (B64Image, error) {
+	return i.OptimizeWithConfig(1024, 1024)
 }
 
-func (i ImageBytes) OptimizeWithConfig(maxWidth, maxHeight int, fileTypes []bimg.ImageType) error {
-	targetType, convert := i.shouldConvert(fileTypes)
-
-	size, err := bimg.NewImage(i).Size()
+func (i B64Image) OptimizeWithConfig(maxWidth, maxHeight int) (B64Image, error) {
+	img, imgType, err := image.Decode(bytes.NewReader(i))
 	if err != nil {
-		return err
+		return i, err
 	}
 
-	newWidth, newHeight := resizeAspectRatio(size.Width, size.Height, maxWidth, maxHeight)
-	if size.Width != newWidth || size.Height != newHeight {
-		if i, err = bimg.NewImage(i).Resize(newWidth, newHeight); err != nil {
-			return err
-		}
-		convert = true
+	var wasResized bool
+	img, wasResized = resizeImage(img, maxWidth, maxHeight)
+	if !wasResized && imgType == "jpeg" {
+		return i, nil
 	}
 
-	if !convert {
-		return nil
+	buf := new(bytes.Buffer)
+	if err := jpeg.Encode(buf, img, &jpeg.Options{Quality: 80}); err != nil {
+		return i, err
 	}
 
-	i, err = bimg.NewImage(i).Convert(targetType)
-	return err
+	return buf.Bytes(), nil
 }
 
-func (i ImageBytes) shouldConvert(acceptableTypes []bimg.ImageType) (bimg.ImageType, bool) {
-	if len(acceptableTypes) == 0 {
-		return bimg.WEBP, true
+func resizeImage(src image.Image, maxWidth, maxHeight int) (image.Image, bool) {
+	newWidth, newHeight, needsResize := resizeAspectRatio(src.Bounds().Dx(), src.Bounds().Dy(), maxWidth, maxHeight)
+	if !needsResize {
+		return src, false
 	}
 
-	imType := bimg.DetermineImageType(i)
-	convert := true
-	for _, t := range acceptableTypes {
-		if imType == t {
-			convert = false
-			break
-		}
-	}
+	dst := image.NewRGBA(image.Rect(0, 0, newWidth, newHeight))
+	draw.BiLinear.Scale(dst, dst.Rect, src, src.Bounds(), draw.Over, nil)
 
-	return acceptableTypes[0], convert
+	return dst, true
 }
 
-func resizeAspectRatio(width, height, maxWidth, maxHeight int) (int, int) {
+func resizeAspectRatio(width, height, maxWidth, maxHeight int) (int, int, bool) {
 	if width <= maxWidth && height <= maxHeight {
-		return width, height
+		return width, height, false
 	}
 
 	if width > maxWidth {
@@ -66,5 +62,5 @@ func resizeAspectRatio(width, height, maxWidth, maxHeight int) (int, int) {
 		height = maxHeight
 	}
 
-	return width, height
+	return width, height, true
 }

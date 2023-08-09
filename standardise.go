@@ -21,10 +21,12 @@ func (r *Recipe) Standardize(network bool) error {
 		return err
 	}
 
-	for _, i := range r.Images {
-		if err := i.Optimize(); err != nil {
+	for i, img := range r.Images {
+		newImg, err := img.Optimize()
+		if err != nil {
 			return err
 		}
+		r.Images[i] = newImg
 	}
 
 	if network {

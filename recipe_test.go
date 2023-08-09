@@ -1,6 +1,8 @@
 package mela_test
 
 import (
+	"bytes"
+	"image"
 	"os"
 	"reflect"
 	"testing"
@@ -131,8 +133,6 @@ var wantFixtures = map[string]struct {
 	},
 }
 
-var singlePixelTransparentPNG = []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x04, 0x00, 0x00, 0x00, 0xB5, 0x1C, 0x0C, 0x02, 0x00, 0x00, 0x00, 0x0B, 0x49, 0x44, 0x41, 0x54, 0x18, 0x57, 0x63, 0x60, 0x60, 0x00, 0x00, 0x00, 0x03, 0x00, 0x01, 0x68, 0x26, 0x59, 0x0D, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82}
-
 func EnsureRecipe(t *testing.T, got *mela.Recipe, wantID string) {
 	if err := got.Standardize(false); err != nil {
 		t.Errorf("For %s, was unable to standardize: %#v", wantID, err)
@@ -177,9 +177,20 @@ func EnsureRecipe(t *testing.T, got *mela.Recipe, wantID string) {
 
 	// Images
 
-	// All the fixtures have one image, that is a single pixel transparent PNG
-	if !reflect.DeepEqual(got.Images, []mela.ImageBytes{singlePixelTransparentPNG}) {
-		t.Errorf("For %s, incorrect images: got = %v", wantID, got.Images)
+	// All the fixtures have one image, that is a single pixel transparent PNG; converted they
+	// should all a single pixel white JPEG
+	if len(got.Images) != 1 {
+		t.Errorf("For %s, incorrect number of images: want = %d, got = %v", wantID, 1, len(got.Images))
+	}
+	img, imgType, err := image.Decode(bytes.NewReader(got.Images[0]))
+	if err != nil {
+		t.Errorf("For %s, could not decode image: %v", wantID, err)
+	}
+	if imgType != "jpeg" {
+		t.Errorf("For %s, wrong imahe type: want = %s, got = %s", wantID, "jpeg", imgType)
+	}
+	if img.Bounds().Dx() != 1 || img.Bounds().Dy() != 1 {
+		t.Errorf("For %s, wrong image size: want = %dx%d, got = %dx%d", wantID, 1, 1, img.Bounds().Dx(), img.Bounds().Dy())
 	}
 
 	// Parsed Fields

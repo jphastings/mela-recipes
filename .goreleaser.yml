@@ -2,10 +2,6 @@ project_name: mela-recipes
 before:
   hooks:
     - go mod tidy
-# Get dependencies:
-# libvips libheic
-# brew fetch --force --bottle-tag=arm64_monterey libvips
-# brew install $(brew --cache --bottle-tag=arm64_monterey libvips)
 
 builds:
   - id: mela-standardize
@@ -14,17 +10,17 @@ builds:
     ldflags:
       - -s -w -X main.version={{.Version}} -X main.commit={{.ShortCommit}} -X main.date={{.Date}}
     env:
-      - CGO_ENABLED=1
+      - CGO_ENABLED=0
     goos:
-      # - linux
-      # - windows
+      - linux
+      - windows
       - darwin
     goarch:
-      # - amd64
+      - amd64
       - arm64
 
-# universal_binaries:
-#   - replace: true
+universal_binaries:
+  - replace: true
 
 archives:
   - format: tar.gz

@@ -24,7 +24,7 @@ type Recipe struct {
 	Categories   []string          `json:"categories"`
 	Notes        string            `json:"notes"`
 
-	Images    []ImageBytes  `json:"images"`
+	Images    []B64Image    `json:"images"`
 	Yield     PeopleCount   `json:"yield"`
 	PrepTime  MaybeDuration `json:"prepTime"`
 	CookTime  MaybeDuration `json:"cookTime"`
