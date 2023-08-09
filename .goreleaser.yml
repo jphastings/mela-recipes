@@ -1,0 +1,90 @@
+project_name: mela-recipes
+before:
+  hooks:
+    - go mod tidy
+# Get dependencies:
+# libvips libheic
+# brew fetch --force --bottle-tag=arm64_monterey libvips
+# brew install $(brew --cache --bottle-tag=arm64_monterey libvips)
+
+builds:
+  - main: ./cmd/mela-standardize
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.ShortCommit}} -X main.date={{.Date}}
+    env:
+      - CGO_ENABLED=1
+    goos:
+      # - linux
+      # - windows
+      - darwin
+    goarch:
+      # - amd64
+      - arm64
+
+# universal_binaries:
+#   - replace: true
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+    - goos: windows
+      format: zip
+
+brews:
+  - name: mela-standardize
+    download_strategy: CurlDownloadStrategy
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    folder: Formula
+    homepage: "https://github.com/jphastings/mela-recipes/"
+
+    description: "Standardize Mela recipe files."
+    license: "MIT"
+
+    custom_block: |
+      resource("test.melarecipes") do
+        url "https://raw.githubusercontent.com/jphastings/mela-recipes/main/fixtures/a+b.melarecipes"
+        sha256 "4f72c6ffb2f126adf5df5d79311dfec2335b463da16fe26deff19bdd5579e1b2"
+      end
+
+    test: |
+      resource("test.melarecipes").stage do
+        shell_output("#{bin}/mela-standardize test.melarecipes \"#{testpath}\"")
+        assert_predicate testpath/"example.com/a-title.melarecipe", :exist?
+        assert_predicate testpath/"example.com/b-title.melarecipe", :exist?
+      end
+
+    repository:
+      owner: jphastings
+      name: homebrew-tools
+      branch: main
+      token: "{{ .Env.HOMEBREW_PAT }}"
+
+      pull_request:
+        enabled: false
+
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+# The lines beneath this are called `modelines`. See `:help modeline`
+# Feel free to remove those if you don't want/use them.
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj

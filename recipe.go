@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type Recipe struct {
@@ -117,13 +119,30 @@ func ParseRecipes(r io.ReaderAt, size int64, onRecipe func(*Recipe, error)) erro
 	return nil
 }
 
+func sourceName(linkField string) string {
+	u, err := url.Parse(linkField)
+	if err == nil && u.Host != "" {
+		return u.Host
+	}
+
+	return kebabCaser.ReplaceAllString(strings.ToLower(linkField), "-")
+}
+
 func (r *Recipe) Save(dir string) (string, error) {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return "", fmt.Errorf("output directory '%s' does not exist", dir)
+	}
+
 	data, err := json.Marshal(r)
 	if err != nil {
 		return "", fmt.Errorf("unable to marshal recipe: %w", err)
 	}
 
-	destination := filepath.Join(dir, r.Filename+".melarecipe")
+	destination := filepath.Join(dir, sourceName(r.Link), r.Filename+".melarecipe")
+	if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {
+		return "", fmt.Errorf("unable to create recipe directory '%s': %w", filepath.Dir(destination), err)
+	}
+
 	f, err := os.Create(destination)
 	if err != nil {
 		return "", fmt.Errorf("unable to create recipe file: %w", err)

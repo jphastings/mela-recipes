@@ -3,13 +3,24 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/jphastings/mela-recipes"
 )
 
+var (
+	version = "0.0.0"
+	commit  = "dev"
+	date    = time.Now().Format(time.DateOnly)
+)
+
 func main() {
 	if len(os.Args) < 3 {
-		fmt.Printf("Usage: %s <.melarecipe(s) file> [... <.melarecipe(s) file>] <output directory>\n", os.Args[0])
+		execName := filepath.Base(os.Args[0])
+		fmt.Printf(
+			"Mela Standardize v%s-%s (%s)\n\nUsage: %s <.melarecipe(s)> [...<.melarecipe(s)>] <output directory>\n",
+			version, commit, date, execName)
 		os.Exit(1)
 	}
 

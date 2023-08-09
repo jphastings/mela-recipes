@@ -115,13 +115,13 @@ var wantFixtures = map[string]struct {
 		ParsedInstructions: map[string][]string{"": {"B instructions"}},
 	},
 	"c": {
-		ID:         "urn:isbn:9780198526636#pages=42&recipe=3",
+		ID:         "urn:isbn:9780714863603#pages=42&recipe=3",
 		Title:      "C title",
 		Categories: []string{"c", "cc"},
-		Link:       "https://example.com/c",
+		Link:       "Fresh & Easy",
 		Text:       "C text",
 		Nutrition:  "C nutrition",
-		Notes:      "C Notes\n\n_9780198526636, p.42, 3rd_",
+		Notes:      "C Notes\n\n_9780714863603, p.42, 3rd_",
 
 		ParsedYield:        3,
 		ParsedIngredients:  map[string][]string{"": {"C ingredients"}},
