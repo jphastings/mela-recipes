@@ -40,7 +40,7 @@ func main() {
 		}
 
 		for _, r := range recipes {
-			if err := r.Standardize(); err != nil {
+			if err := r.Standardize(true); err != nil {
 				fmt.Fprintf(os.Stderr, "Error standardizing '%s' from '%s': %v\n", r.Title, file, err)
 				os.Exit(1)
 			}

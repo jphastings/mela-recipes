@@ -37,7 +37,7 @@ func TestRawRecipe_Standardize(t *testing.T) {
 
 	for _, test := range tests {
 		r := &Recipe{ID: "urn:isbn:9781786699503", Notes: test.notes}
-		if err := r.Standardize(); err != nil {
+		if err := r.Standardize(false); err != nil {
 			t.Errorf("Error standardizing for '%s': %v", test.name, err)
 		}
 

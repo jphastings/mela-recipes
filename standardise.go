@@ -1,15 +1,20 @@
 package mela
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var kebabCaser = regexp.MustCompile(`[^a-z0-9]+`)
 
-func (r *Recipe) Standardize() error {
+func (r *Recipe) Standardize(network bool) error {
 	r.Filename = kebabCaser.ReplaceAllString(strings.ToLower(r.Title), "-")
 
 	if err := bookFromNotes(r); err != nil {
@@ -18,6 +23,12 @@ func (r *Recipe) Standardize() error {
 
 	for _, i := range r.Images {
 		if err := i.Optimize(); err != nil {
+			return err
+		}
+	}
+
+	if network {
+		if err := linkFromOpenLibrary(r); err != nil {
 			return err
 		}
 	}
@@ -95,4 +106,108 @@ func ordinal(n uint64) string {
 	default:
 		return fmt.Sprintf("%dth", n)
 	}
+}
+
+type thingsResponse struct {
+	Status string   `json:"status"`
+	Result []string `json:"result"`
+}
+
+type getResponse struct {
+	Status string `json:"status"`
+	Result struct {
+		Title string `json:"title"`
+	} `json:"result"`
+}
+
+func linkFromOpenLibrary(r *Recipe) error {
+	if r.Book() == nil {
+		return nil
+	}
+
+	client := http.Client{
+		Timeout: 1 * time.Second,
+	}
+
+	query := map[string]string{
+		"type":    "/type/edition",
+		"isbn_13": r.Book().ISBN13,
+	}
+	queryJSON, err := json.Marshal(query)
+	if err != nil {
+		return err
+	}
+
+	qv := url.Values{}
+	qv.Set("query", string(queryJSON))
+
+	queryURL := url.URL{
+		Scheme:   "https",
+		Host:     "openlibrary.org",
+		Path:     "/api/things",
+		RawQuery: qv.Encode(),
+	}
+
+	vRes, err := client.Get(queryURL.String())
+	if err != nil {
+		return err
+	}
+
+	vBody, err := io.ReadAll(vRes.Body)
+	if err != nil {
+		return fmt.Errorf("unable to read OpenLibrary response: %w", err)
+	}
+
+	if vRes.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code from OpenLibrary: %d (%s)", vRes.StatusCode, vBody)
+	}
+
+	var things thingsResponse
+	if err := json.Unmarshal(vBody, &things); err != nil {
+		return fmt.Errorf("unable to parse OpenLibrary response: %w", err)
+	}
+
+	if things.Status != "ok" {
+		return fmt.Errorf("response status from OpenLibrary not ok: %s", things.Status)
+	}
+
+	if len(things.Result) == 0 {
+		return fmt.Errorf("no books found with this ISBN in the OpenLibrary")
+	}
+
+	gv := url.Values{}
+	gv.Set("key", things.Result[0])
+
+	getURL := url.URL{
+		Scheme:   "https",
+		Host:     "openlibrary.org",
+		Path:     "/api/get",
+		RawQuery: gv.Encode(),
+	}
+
+	gRes, err := client.Get(getURL.String())
+	if err != nil {
+		return err
+	}
+
+	gBody, err := io.ReadAll(gRes.Body)
+	if err != nil {
+		return fmt.Errorf("unable to read OpenLibrary response: %w", err)
+	}
+
+	if gRes.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code from OpenLibrary: %d (%s)", gRes.StatusCode, gBody)
+	}
+
+	var get getResponse
+	if err := json.Unmarshal(gBody, &get); err != nil {
+		return fmt.Errorf("unable to parse OpenLibrary response: %w", err)
+	}
+
+	if get.Status != "ok" {
+		return fmt.Errorf("response status from OpenLibrary not ok: %s", get.Status)
+	}
+
+	r.Link = get.Result.Title
+	return nil
 }
