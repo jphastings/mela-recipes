@@ -1,3 +1,5 @@
 /.vscode/
-README_test.go
+/README_test.go
 /dist/
+/test-results.json
+/Brewfile.lock.json
