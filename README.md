@@ -6,6 +6,26 @@ Includes customisations that define a convention for the ID of recipes derrived 
 
 ## Usage
 
+### As a CLI tool
+
+The pre-compiled binaries are [available on Github](https://github.com/jphastings/mela-recipes/releases/latest). You can also install rapidly with Homebrew on Linux and macOS:
+
+```bash
+brew install jphastings/tools/mela-standardize
+``````
+
+Then standardizing a mela recipe file is as simple as:
+
+```bash
+$ mela-standardize recipe1.melarecipe lots.melarecipes /output/path
+Saved 'Some recipe' to '/output/path/some-book/some-recipe.melarecipe'
+Saved 'A title' to '/output/path/example.com/a-title.melarecipe'
+```
+
+### As a library
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/jphastings/mela-recipes.svg)](https://pkg.go.dev/github.com/jphastings/mela-recipes)
+
 ```go global
 // import github.com/jphastings/mela-recipes
 ```
@@ -58,11 +78,13 @@ fmt.Println("Recipe number:", r.Book().RecipeNumber)
 // Recipe number: 2
 ```
 
-You can standardize the Recipe file with a call to `Stanadrdize()`. This performs three stanadrdizations:
+You can standardize the Recipe file with a call to `Standardize()`. This performs three stanadrdizations:
 
-- Pulls an ISBN, page & recipe numbers from the _Notes_ field, if present in the form `_9781234512345, p.123-125, 2nd` to represent the book with ISBN 9781234512345, optionally on pages 123 to 125, optionally the 2nd recipe on that first page (see [ISBN Extension](#isbn-extension) for more). Changes the recipe's ID to reference this book.
+- Pulls an ISBN, page & recipe numbers from the _Notes_ field, if present in the form `9781234512345, p.123-125, 2nd` to represent the book with ISBN 9781234512345, optionally on pages 123 to 125, optionally the 2nd recipe on that first page (see [ISBN Extension](#isbn-extension) for more). Changes the recipe's ID to reference this book.
 - Converts any images to be maximum 1024x1024px, and in WebP format.
 - For books with an ISBN, retrieves the book title from the [OpenLibrary](https://openlibrary.com) and sets the 'link' field of the recipe to be the title of the book.
+
+
 
 ## Extensions
 
