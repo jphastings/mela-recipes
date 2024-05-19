@@ -45,6 +45,10 @@ func main() {
 				os.Exit(1)
 			}
 
+			for _, s := range r.ListStandardizations() {
+				fmt.Printf("→ %s\n", s)
+			}
+
 			dest, err := r.Save(outputDir)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error saving '%s' from '%s': %v\n", r.Title, file, err)

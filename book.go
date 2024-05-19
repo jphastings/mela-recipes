@@ -79,3 +79,7 @@ func (r *Recipe) SetBook(isbn10or13 string, pages Pages, recipeNumber uint) erro
 
 	return nil
 }
+
+func (b *Book) String() string {
+	return fmt.Sprintf("%s, p.%s", b.ISBN13, b.Pages)
+}

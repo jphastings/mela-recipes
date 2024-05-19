@@ -93,11 +93,15 @@ func bookFromNotes(r *Recipe) error {
 		return err
 	}
 	r.Notes = newNotes
+	r.standardizationsMade = append(r.standardizationsMade, fmt.Sprintf("extracted Book details from notes: %v", r.Book()))
 
 	return nil
 }
 
 func ordinal(n uint64) string {
+	if (n%100)/10 == 1 {
+		return fmt.Sprintf("%dth", n)
+	}
 	switch n % 10 {
 	case 1:
 		return fmt.Sprintf("%dst", n)
@@ -212,4 +216,8 @@ func linkFromOpenLibrary(r *Recipe) error {
 
 	r.Link = get.Result.Title
 	return nil
+}
+
+func (r *Recipe) ListStandardizations() []string {
+	return r.standardizationsMade
 }

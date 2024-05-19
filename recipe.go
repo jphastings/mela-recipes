@@ -29,6 +29,8 @@ type Recipe struct {
 	PrepTime  MaybeDuration `json:"prepTime"`
 	CookTime  MaybeDuration `json:"cookTime"`
 	TotalTime MaybeDuration `json:"totalTime"`
+
+	standardizationsMade []string
 }
 
 var ErrInvalidMelaFile = errors.New("given file is neither a melarecipe nor a melarecipes file")
