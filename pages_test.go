@@ -38,3 +38,26 @@ func Test_ParsePages(t *testing.T) {
 		}
 	}
 }
+
+func Test_CorrectContractions(t *testing.T) {
+	type test struct {
+		pgs  Pages
+		want Pages
+	}
+
+	tests := []test{
+		{Pages{PageRange{"156", "7"}}, Pages{PageRange{"156", "157"}}},
+		{Pages{PageRange{"156", "81"}}, Pages{PageRange{"156", "181"}}},
+	}
+
+	for _, test := range tests {
+		actual := test.pgs.CorrectContractions()
+		if !reflect.DeepEqual(actual, test.want) {
+			t.Errorf("incorrect contraction correction (wanted %s, got %s)", test.want, actual)
+		}
+
+		if reflect.DeepEqual(actual, test.pgs) {
+			t.Errorf("the original has been changed (when it should have been)")
+		}
+	}
+}

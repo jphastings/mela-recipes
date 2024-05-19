@@ -2,7 +2,9 @@ package mela
 
 import (
 	"fmt"
+	"math"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -52,4 +54,37 @@ func (p Pages) String() string {
 	}
 
 	return strings.Join(parts, ",")
+}
+
+// CorrectContractions returns a new Pages object replacing page spans like "145-6" with the more explicit "145-146"
+func (p Pages) CorrectContractions() Pages {
+	newP := make(Pages, len(p))
+
+	for i, pr := range p {
+		newP[i] = make([]string, len(pr))
+		copy(newP[i], pr)
+
+		if len(pr) != 2 {
+			continue
+		}
+
+		a, err := strconv.Atoi(pr[0])
+		if err != nil {
+			continue
+		}
+		b, err := strconv.Atoi(pr[1])
+		if err != nil {
+			continue
+		}
+		if b >= a {
+			continue
+		}
+
+		div := int(math.Pow(10, math.Ceil(math.Log10(float64(b)))))
+		extra := a / div
+
+		newP[i][1] = fmt.Sprintf("%d", extra*div+b)
+	}
+
+	return newP
 }
