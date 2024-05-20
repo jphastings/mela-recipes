@@ -12,10 +12,8 @@ import (
 	"time"
 )
 
-var kebabCaser = regexp.MustCompile(`[^a-z0-9]+`)
-
 func (r *Recipe) Standardize(network bool) error {
-	r.Filename = strings.Trim(kebabCaser.ReplaceAllString(strings.ToLower(r.Title), "-"), "-")
+	r.Filename = stringToFilename(r.Title)
 
 	if err := bookFromNotes(r); err != nil {
 		return err
@@ -46,7 +44,7 @@ func (r *Recipe) Standardize(network bool) error {
 	return nil
 }
 
-var extractor = regexp.MustCompile(`(?i)(\s*)((?:isbn:? ?|_)([0-9X-]+)\r?\n?((?:, p.|pages?:? ?)([^_\s,]+)\r?\n?((?:recipe:? ?|, )?(\d+)(?:[a-z]{2})?\r?\n?)?)?)_?(\s*)`)
+var extractor = regexp.MustCompile(`(?i)(\s*)((?:isbn:? ?|_)([0-9X-]+)\r?\n?((?:, p\.|pages?:? ?)([^_\s,]+)\r?\n?((?:recipe:? ?|, )?(\d+)(?:[a-z]{2})?\r?\n?)?)?)_?(\s*)`)
 
 func bookFromNotes(r *Recipe) error {
 	matches := extractor.FindStringSubmatch(r.Notes)
