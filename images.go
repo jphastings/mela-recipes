@@ -3,18 +3,20 @@ package mela
 import (
 	"bytes"
 	"image"
-	"image/jpeg"
+	_ "image/jpeg"
 	_ "image/png"
 
 	_ "golang.org/x/image/webp"
 
 	"golang.org/x/image/draw"
+
+	"github.com/gen2brain/jpegli"
 )
 
 type B64Image []byte
 
 func (i B64Image) Optimize() (B64Image, error) {
-	return i.OptimizeWithConfig(1024, 1024)
+	return i.OptimizeWithConfig(512, 512)
 }
 
 func (i B64Image) OptimizeWithConfig(maxWidth, maxHeight int) (B64Image, error) {
@@ -25,12 +27,17 @@ func (i B64Image) OptimizeWithConfig(maxWidth, maxHeight int) (B64Image, error) 
 
 	var wasResized bool
 	img, wasResized = resizeImage(img, maxWidth, maxHeight)
-	if !wasResized && (imgType == "jpeg" || imgType == "webp") {
+	if !wasResized && (imgType == "jpeg") {
 		return i, nil
 	}
 
+	opts := jpegli.EncodingOptions{
+		Quality:           75,
+		FancyDownsampling: true,
+	}
+
 	buf := new(bytes.Buffer)
-	if err := jpeg.Encode(buf, img, &jpeg.Options{Quality: 80}); err != nil {
+	if err := jpegli.Encode(buf, img, &opts); err != nil {
 		return i, err
 	}
 

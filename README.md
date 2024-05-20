@@ -80,9 +80,9 @@ fmt.Println("Recipe number:", r.Book().RecipeNumber)
 
 You can standardize the Recipe file with a call to `Standardize()`. This performs three standardizations:
 
-- Pulls an ISBN, page & recipe numbers from the _Notes_ field, if present in the form `9781234512345, p.123-125, 2nd` to represent the book with ISBN 9781234512345, optionally on pages 123 to 125, optionally the 2nd recipe on that first page (see [ISBN Extension](#isbn-extension) for more). Changes the recipe's ID to reference this book.
-- Converts any images to be maximum 1024x1024px, and in WebP format.
-- For books with an ISBN, retrieves the book title from the [OpenLibrary](https://openlibrary.com) and sets the 'link' field of the recipe to be the title of the book.
+- Pulls an ISBN, page & recipe numbers from the _Notes_ field, if present in forms similar to `_9781234512345, p.123-125, 2nd_`. This would represent the book with ISBN 9781234512345, on pages 123 to 125, starting as the 2nd recipe on that first page (see [ISBN Extension](#isbn-extension) for more). Changes the recipe's ID to reference this book.
+- Converts any images to be maximum 512x512px, and in (jpegli encoded) JPEG format.
+- (If network access is enabled, and for books with an ISBN) retrieves the book title from the [OpenLibrary](https://openlibrary.com) and sets the 'link' field of the recipe to be the title of the book.
 
 ## Extensions
 

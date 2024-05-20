@@ -1,7 +1,6 @@
 package mela
 
 import (
-	"archive/zip"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -94,31 +93,6 @@ func ParseRecipe(r io.Reader) (*Recipe, error) {
 	dec := json.NewDecoder(r)
 	err := dec.Decode(&recipe)
 	return &recipe, err
-}
-
-// ParseRecipe parses a known .melarecipes collection file into a stream of Recipe-compatible structs, calling the onRecipe func for each, as it is parsed
-func ParseRecipes(r io.ReaderAt, size int64, onRecipe func(*Recipe, error)) error {
-	zr, err := zip.NewReader(r, size)
-	if err != nil {
-		return err
-	}
-
-	for _, zf := range zr.File {
-		rr, err := zf.Open()
-		if err != nil {
-			onRecipe(nil, err)
-		}
-		defer rr.Close()
-
-		if recipe, err := ParseRecipe(rr); err != nil {
-			onRecipe(nil, err)
-		} else {
-			recipe.Filename = withoutExt(zf.Name)
-			onRecipe(recipe, nil)
-		}
-	}
-
-	return nil
 }
 
 func sourceName(linkField string) string {
