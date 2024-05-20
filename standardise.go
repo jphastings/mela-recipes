@@ -21,6 +21,14 @@ func (r *Recipe) Standardize(network bool) error {
 		return err
 	}
 
+	if r.Images == nil {
+		r.Images = make([]B64Image, 0)
+	}
+
+	if r.Categories == nil {
+		r.Categories = make([]string, 0)
+	}
+
 	for i, img := range r.Images {
 		newImg, err := img.Optimize()
 		if err != nil {
