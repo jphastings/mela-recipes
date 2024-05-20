@@ -15,7 +15,7 @@ import (
 var kebabCaser = regexp.MustCompile(`[^a-z0-9]+`)
 
 func (r *Recipe) Standardize(network bool) error {
-	r.Filename = kebabCaser.ReplaceAllString(strings.ToLower(r.Title), "-")
+	r.Filename = strings.Trim(kebabCaser.ReplaceAllString(strings.ToLower(r.Title), "-"), "-")
 
 	if err := bookFromNotes(r); err != nil {
 		return err
