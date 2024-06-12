@@ -133,67 +133,70 @@ The pages referenced should be listed in the order they appear in the book. For 
 
 For recipe bundles created from physical books it can be useful to protect the bundle so that only people who are able to demonstrate they own a copy of that physical book are able to access the recipes within.
 
-Files protected like this are identical to `.melarecipes` zip files, except that they use the extension `.protectedrecipes`, all contained `.melarecipe` files are password protected with standard AES256 zip encryption, and contain a `decrypting.txt` (in the clear) with the questions that need to be answered to derive the decryption password.
+Files protected like this are identical to `.melarecipes` zip files, except that they use the extension `.protectedrecipes`, all contained `.melarecipe` files are password protected with standard AES256 zip encryption, and also contain the unencrypted `_decrypting.txt` as the first entry, which contains the questions that need to be answered and details needed to derive the decryption password.
 
-The `decrypting.txt` file has seven questions on seven separate lines (written in the locale of the book in question, `\n` delimited), and expecting a one-word answer. (The file also ends in a `#` prefixed comment pointing to this readme).
+The `_decrypting.txt` file contains three sections (each line `\n` delimited):
 
-To prove ownership at least 4 of the 7 questions must be answered, and processed as follows to create the password:
+1. `Q` Questions that can be provided to be answered (one per line, in the main locale of the recipes),
+2. An explanatory comment line (starting with `#`) on line number `Q`, and
+3. `P` Additional points (one per line, as base64 encoded big endian bigint bytes).
 
-- Each answer (as a UTF-8 string) is whitespace-trimmed, lowercased, and NFKC normalized
-- This is hashed with the CRC32 algorithm
-- Bit `0` from the CRC32 of answer `i` (of 7) is used as bit `i` of a [Hamming(7,4) code](https://en.wikipedia.org/wiki/Hamming(7,4)), which become the high nibble of the first byte of the unencoded password
-- Bit `1` from the CRC32 follows the same process to become the low nibble of the first byte of the unencoded password
-- The resulting 16 bytes of the unencoded password become 22 bytes of (unpadded) Base64 characters, which is the password used for the recipes
+The number of additional points in the last section (`P`) is equal to the number of questions that can remain unanswered while still retrieving a correct decryption key — ie. `Q - P` questions must be answered. To produce a decryption key this process is followed:
 
-#### Decrypting example
+- `Q - P` times the following is completed:
+  - A number, `x`, is picked (any not previously picked from index `0` up to but not including index `Q`)
+  - The question on that line of `_decrypting.txt` is provided for the person to answer.
+  - The answer (as a UTF-8 string) is whitespace-trimmed, lowercased, and NFKC normalized.
+  - This normalized answer is hashed with the SHA256 algorithm, and interpreted as a big endian big int as `y`.
+  - `x` and `y` are stored as an XY point in the field with modulus `170,141,183,460,469,231,731,687,303,715,884,105,727` (the 127th Mersenne prime, referred to as M-127 from here on).
+- The `P`  additional points Base64 are decoded as big endian big ints as `y` values, each having a corresponding `x` value equal to their line number.
+  - Note: there will be a gap in the `x` coordinates corresponding to the line number of the explanatory comment.
+- The [Lagrange polynomial](https://en.wikipedia.org/wiki/Lagrange_polynomial) is calculated from all `Q` points (both those generated from the selected questions, and from the additional points).
+- The polynomial coefficients are used to calculate the missing `y` value at `x = Q` (using the same modulus).
+- That big int is converted into (big endian) bytes, and encoded with Base64 (standard character set, no padding) — this is the password for the encrypted recipes.
+
+<details>
+<summary>A detailed worked example of decrypting</summary>
 
 A `.protectedrecipes` file might include a `_decrypting.txt` file that looks like this:
 
-<summary>
-<details>Example `_decrypting.txt`</details>
-
-```text
+```text _decrypting.txt
 Look at the first recipe shown on page 81. In the recipe's instructions, what is the last word of the third step?
 Look at the first recipe shown on page 22. How many people does this recipe cater for (as a number)?
 Look at the first recipe shown on page 92. In the recipe's description, what is the second word of the third sentence?
 Look at the second recipe shown on page 14. What is the recipe's title (including punctuation)?
-Look at the (…etc for Q5)
-Look at the (…etc for Q6)
-Look at the (…etc for Q7)
-# These are questions that allow the derivation of the password for the other files in this archive. Please see https://github.com/jphastings/mela-recipes#proof-of-ownership-extension for information.
+Look at the first recipe shown on page 105. How many steps does this recipe have?
+Look at the first recipe shown on page 123. In the recipe's instructions, what is the last word of the last step?
+Look at the first recipe shown on page 66. In the recipe's description, what is the last word of the first sentence?
+# Above are questions that allow the derivation of the password for the other files in this archive, below is additional machine information needed for the same. Please see https://github.com/jphastings/mela-recipes#proof-of-ownership-extension for specifics.
+S7yj6S74aoH+OHe13fSZyA
+a5D0f5T4cNy6WsVHs9YXGw
+F2rQyKGBPZiV58T8JYIq0Q
+PJ+d02O5RqcAvSyHKkRlDw
 ```
 
-</summary>
+As there are 7 question rows and 4 additional point rows this means `7 - 4 = 3` questions must be answered correctly to decrypt these recipes.
 
-The decrypting process picks a random question to ask (the one at index 0):
+The decrypting process picks a random question to ask. The first is picked, so `x = 0 mod M-127` (as we're zero indexing):
 
 > Look at the first recipe shown on page 81. In the recipe's instructions, what is the last word of the third step?
 
-Assuming the answer is "transparent" then the CRC32 of that (downcased, whitespace trimmed, NKFC normalized) UTF-8 string is `0x0875e90c`, or `0b00001000011101011110100100001100`.
+Assuming the answer is "flambé" then the SHA256 hash of that (downcased, whitespace trimmed, NKFC normalized) UTF-8 string is `0x46cf4447b9ee6996f564e9e5c2730f66a22e8ddd227e423c38fb77134476bfa7`, which means `y = 32028107995726419024310051710096036951208462986977060729683081194961185980327 mod M-127` (it is interpreted as a big endian decimal big int).
 
-Similarly the CRC32 hashes of the questions with index 3, 5, and 6 are obtained:
+This process is repeated 2 more times (as three answers are needed), each `(x, y)` pair (modulus the M-127 prime) as a point.
 
-| Index    | CRC32 of normalized answer         |
-|----------|------------------------------------|
-| 0 ✅ (p1) | `00001000011101011110100100001100` |
-| 1 ❌ (p2) | `????????????????????????????????` |
-| 2 ❌ (d1) | `????????????????????????????????` |
-| 3 ✅ (p3) | `01010011101101011010001111001110` |
-| 4 ❌ (d2) | `????????????????????????????????` |
-| 5 ✅ (d3) | `11100000001011101111011110011001` |
-| 6 ✅ (d4) | `01001010110100000110000000010100` |
+Each of the 'additional point' rows is decoded with Base64 (standard, unpadded) and converted to a big endian big int, and added as a further point.
 
-The first column is treated as a Hamming(7,4) code, with the parity bits used to calculate any missing data bits (if any of questions 2, 4, 5 and 6 weren't selected to be answered).
+Line 8 (`x = 8 mod M-127`) is `S7yj6S74aoH+OHe13fSZyA` \
+↓\
+`y = 100671576000737126131661019523537213896 mod M-127`
 
-`0??0?10` → `1110` (or `0xE`) because:
+All the points (from answers and the additional ones) are plugged into a Lagrange Interpolation Polynomial calculator. As the 7th line contains the comment the polynomial coefficients are used to find `y` when `x = 7` in order to derive the password.
 
-- `p3 = d2 + d3 + d4 % 2`
-  `0  = ?  + 1  + 0  % 2`
-  `d2 = 1`
-- `p1 = d1 + d2 + d4 % 2`
-  `0  = ?  + 1  + 0  % 2`
-  `d1 = 1`
+Assuming the result is `y = 17047859747726120506192065393950404758 mod M-127` then this is converted to (big endian) bytes, and encoded as (unpadded, standard) Base64 characters, producing the password `DNNMYSmqMjqXG+HY0Lcwlg`.
 
-Completing this process for the remaining columns, the unencoded password (expressed in hex here) is `0xE7ECD09C9DA1EAE4A3FE8E2A2C0BA1CE`. Expressed in Base64 (without padding) is `5+zQnJ2h6uSj/o4qLAuhzg` — the password for this `.protectedrecipes` zip file.
+If this password fails to decrypt the recipes then at least one of the answers is incorrect, a new question can be selected from the list and answered, and the process followed with each combination of 3 answers and all additional points until the correct password is found.
 
-If the password used fails to decrypt any recipe, it can be assumed that one (or more) of the given answers was incorrectly provided. Up to three supplementary questions can be asked to attempt to correct for up to one incorrectly provided answer.
+If no password has been correct and no questions remain to be selected, this means that all combinations of three answers have at least one incorrect answer within them, and the recipes cannot be decrypted — the person is assumed to not have a copy of the relevant physical book to hand.
+
+</details>
