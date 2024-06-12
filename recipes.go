@@ -1,19 +1,29 @@
 package mela
 
 import (
-	"archive/zip"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path"
+
+	"github.com/yeka/zip"
 )
 
 type Recipes struct {
 	zip *zip.Writer
 }
 
-// ParseRecipe parses a known .melarecipes collection file into a stream of Recipe-compatible structs, calling the onRecipe func for each, as it is parsed
-func ParseRecipes(r io.ReaderAt, size int64, onRecipe func(*Recipe, error)) error {
+type RecipesAdder interface {
+	Add(*Recipe) error
+	Close() error
+}
+
+// RecipeFunc returns the (streaming) result of parsing a recipe out of a .melarecipes file
+type RecipeFunc func(*Recipe, error)
+
+// ParseRecipe parses a known .melarecipes collection file into a stream of Recipe-compatible structs, calling the onRecipe func for each, as it is parsed.
+func ParseRecipes(r io.ReaderAt, size int64, onRecipe RecipeFunc) error {
 	zr, err := zip.NewReader(r, size)
 	if err != nil {
 		return err
@@ -38,11 +48,23 @@ func ParseRecipes(r io.ReaderAt, size int64, onRecipe func(*Recipe, error)) erro
 }
 
 // NewRecipesBundle creates a .melarecipes (zip file) and allows writing new recipes directly to it with .Add().
-func NewRecipesBundle(dir, name string) (*Recipes, error) {
-	filename := path.Join(dir, stringToFilename(name)+".melarecipes")
+//
+// If protect argument is true then a .protectedrecipes (zip file) will be created, password protecting all recipe files in a way that requires proof of ownership to decrypt.
+// Note that if protect is true then all recipes must have the same ISBN, and all are held in memory before data is written (which may become large).
+func NewRecipesBundle(dir, name string, protect bool) (RecipesAdder, error) {
+	ext := "melarecipes"
+	if protect {
+		ext = "protectedrecipes"
+	}
+
+	filename := path.Join(dir, stringToFilename(name)+"."+ext)
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
 		return nil, err
+	}
+
+	if protect {
+		return newProtectedRecipes(f), nil
 	}
 
 	return &Recipes{
@@ -57,8 +79,12 @@ func (rs *Recipes) Close() error {
 func (rs *Recipes) Add(r *Recipe) error {
 	w, err := rs.zip.Create(r.Filename + ".melarecipe")
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to create recipe file in zip: %w", err)
 	}
 
-	return json.NewEncoder(w).Encode(r)
+	if err := json.NewEncoder(w).Encode(r); err != nil {
+		return fmt.Errorf("unable to encode recipe JSON into zip: %w", err)
+	}
+
+	return nil
 }
