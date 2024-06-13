@@ -10,9 +10,7 @@ import (
 	"io"
 	"math/big"
 	"math/rand"
-	"regexp"
 	"strings"
-	"unicode"
 
 	interpolation "github.com/SadPencil/go-lagrange-interpolation"
 	"github.com/SadPencil/go-lagrange-interpolation/field"
@@ -129,15 +127,35 @@ func ParseProtectedRecipes(r io.ReaderAt, size int64, onRecipe RecipeFunc, onOwn
 }
 
 func (pr *ProtectedRecipes) PrepareOwnershipQuestions() ([]string, []string, error) {
-	questions, answers, err := createOwnershipQuestions(pr.unprotectedRecipes, questionCount)
-	if err != nil {
-		return nil, nil, err
+	pr.questions = []string{}
+	pr.answers = []string{}
+	rIDs := rand.Perm(len(pr.unprotectedRecipes))
+
+	for _, rID := range rIDs {
+		for _, qmID := range rand.Perm(len(questionMakers)) {
+			q, a, ok := questionMakers[qmID](pr.unprotectedRecipes[rID])
+			if !ok {
+				continue
+			}
+
+			pr.questions = append(pr.questions, q)
+			pr.answers = append(pr.answers, a)
+
+			if len(pr.questions) >= questionCount {
+				break
+			}
+		}
+
+		if len(pr.questions) >= questionCount {
+			break
+		}
 	}
 
-	pr.questions = questions
-	pr.answers = answers
+	if len(pr.questions) < questionCount {
+		return nil, nil, fmt.Errorf("there are too few recipes to be able to generate %d questions", questionCount)
+	}
 
-	return questions, answers, nil
+	return pr.questions, pr.answers, nil
 }
 
 func (pr *ProtectedRecipes) Close() error {
@@ -198,7 +216,7 @@ func normalize(text string) string {
 }
 
 var (
-	ErrNotEnoughAnswers         = errors.New("at least 2 answers must be provided")
+	ErrNotEnoughAnswers         = errors.New("not enough answers have been provided")
 	ErrNotEnoughRequiredCorrect = errors.New("at one answer must be required correct")
 	ErrTooManyRequiredCorrect   = errors.New("more answers are required to be correct than are provided")
 	ErrInvalidAnswers           = errors.New("the answers provided could not be used to produce a password")
@@ -233,7 +251,7 @@ func createPassword(answers []string, requiredCorrect int) (string, []string, er
 		return "", nil, ErrInvalidAnswers
 	}
 
-	for x := ansCount; x <= ansCount*2-requiredCorrect; x++ {
+	for x := ansCount; x < ansCount*2-requiredCorrect; x++ {
 		y := poly.EvaluateAt(intField(x))
 		b64 := base64.RawStdEncoding.EncodeToString(y.Value.Bytes())
 		if x == ansCount {
@@ -335,34 +353,35 @@ func intField(n int) *field.Field {
 	return &field.Field{Modulus: m127, Value: big.NewInt(int64(n))}
 }
 
-// pickNofM randomly selects n elements from 0 up to (but not including) m with no repeating selections.
-func pickNofM(n, m int) ([]int, error) {
-	if n > m {
-		return nil, fmt.Errorf("cannot pick; there are not %d items from 0 up to (but excluding) %d", n, m)
-	}
-
-	list := rand.Perm(m)
-	return list[:n], nil
-}
-
 // passwordTester functions return whether the provided password is correct or not
 type passwordTester func(string) (bool, error)
 
 // determinePassword uses the provided decryption details to ask questions (using the provided ownership testing func) and finds a password that meets the password tester
 func determinePassword(questions, additionalPoints []string, onOwnershipTest OwnershipTestFunc, isPasswordOK passwordTester) (string, error) {
-	qIDs, err := pickNofM(len(questions)-len(additionalPoints), len(questions))
-	if err != nil {
-		return "", err
-	}
+	needAnswerCount := len(questions) - len(additionalPoints)
+	qIDs := rand.Perm(len(questions))
 
 	answers := make(map[int]string)
-	for _, x := range qIDs {
+	var errs error
+	for i, x := range qIDs {
+		maxAnswersRemaining := len(answers) + len(qIDs) - i
+		if maxAnswersRemaining < needAnswerCount {
+			break
+		}
+
 		ans, err := onOwnershipTest(questions[x])
 		if err != nil {
-			return "", fmt.Errorf("unable to collect answer to question: %w", err)
+			errs = errors.Join(errs, fmt.Errorf("unable to collect answer to question %d: %w", x, err))
+			continue
+		}
+		if ans == "" {
+			continue
 		}
 
 		answers[x] = ans
+	}
+	if len(answers) < needAnswerCount {
+		return "", errors.Join(ErrNotEnoughAnswers, errs)
 	}
 
 	password, err := derivePassword(answers, len(questions), additionalPoints)
@@ -395,166 +414,4 @@ func testPasswordOn(zf *zip.File) passwordTester {
 			return false, err
 		}
 	}
-}
-
-// recipeLocationText is a helper function that produces (English) instructions for humans on finding a given recipe in a book
-func recipeLocationText(r *Recipe) string {
-	return fmt.Sprintf(
-		"Look at the %s recipe shown on page %s. ",
-		ordinal(uint64(r.Book().RecipeNumber), true),
-		r.Book().Pages.First(),
-	)
-}
-
-// pickNamedListItem returns a human locator and an item from a list, eg. from ["a", "b", "c"] might return "second", "b"
-func pickNamedListItem(list []string) (string, string) {
-	var possItems [][]string
-	if len(list) >= 1 && len(list[0]) >= minWordLength {
-		possItems = append(possItems, []string{"first", list[0]})
-	}
-	if len(list) >= 2 && len(list[len(list)-1]) >= minWordLength {
-		possItems = append(possItems, []string{"last", list[len(list)-1]})
-	}
-	if len(list) >= 3 && len(list[1]) >= minWordLength {
-		possItems = append(possItems, []string{"second", list[1]})
-	}
-	if len(list) >= 4 && len(list[len(list)-2]) >= minWordLength {
-		possItems = append(possItems, []string{"second-to-last", list[len(list)-2]})
-	}
-	if len(list) >= 5 && len(list[2]) >= minWordLength {
-		possItems = append(possItems, []string{"third", list[2]})
-	}
-
-	if len(possItems) == 0 {
-		return "", ""
-	}
-
-	picked := possItems[rand.Intn(len(possItems))]
-	return picked[0], picked[1]
-}
-
-// questionMaker functions return a question and answer of a particular type from a recipe
-type questionMaker func(*Recipe) (string, string, bool)
-
-// questionRecipeTitle returns a question asking for the title of a recipe, and the matching answer
-func questionRecipeTitle(r *Recipe) (string, string, bool) {
-	// Brackets means there's a subtitle which may be hard to interpret — skip it!
-	if r.Title == "" || strings.Contains(r.Title, "(") {
-		return "", "", false
-	}
-
-	question := recipeLocationText(r) + "What is the recipe's title?"
-	answer := r.Title
-
-	return question, answer, true
-}
-
-// trimPunc trims punctuation from either end of a string
-func trimPunc(str string) string {
-	return strings.TrimFunc(str, func(r rune) bool {
-		return unicode.IsPunct(r)
-	})
-}
-
-// randMapItem returns a random key and (matched) value from from the given map
-func randMapItem[T comparable, U any](m map[T]U) (T, U) {
-	picked := rand.Intn(len(m))
-
-	i := 0
-	for k, v := range m {
-		if i == picked {
-			return k, v
-		}
-		i++
-	}
-	// We should never get here
-	panic("cannot select random map item from empty map")
-}
-
-var sentenceSplit = regexp.MustCompile(`\s+`)
-
-// questionRecipeDescription returns a question asking about the description of a recipe, and the matching answer
-func questionRecipeDescription(r *Recipe) (string, string, bool) {
-	if r.Text == "" {
-		return "", "", false
-	}
-
-	sentences := strings.Split(r.Text, ". ")
-	sentenceLoc, sentence := pickNamedListItem(sentences)
-	wordLoc, word := pickNamedListItem(sentenceSplit.Split(strings.TrimSpace(sentence), -1))
-	word = trimPunc(word)
-
-	question := recipeLocationText(r) + fmt.Sprintf(
-		"In the recipe's description, what is the %s word of the %s sentence?",
-		wordLoc,
-		sentenceLoc,
-	)
-	answer := word
-
-	return question, answer, true
-}
-
-// questionRecipeInstructions returns a question asking about the instructions of a recipe, and the matching answer
-func questionRecipeInstructions(r *Recipe) (string, string, bool) {
-	if r.Instructions == "" {
-		return "", "", false
-	}
-
-	lines := r.Instructions.Parse()
-	secName, secLines := randMapItem(lines)
-	if secLines == nil {
-		return "", "", false
-	}
-	var secLocator string
-	if secName == "" {
-		secLocator = "In the recipe's instructions"
-	} else {
-		secLocator = fmt.Sprintf("Within the part of the recipe's instructions labeled '%s'", secName)
-	}
-
-	lineLoc, line := pickNamedListItem(secLines)
-	wordLoc, word := pickNamedListItem(sentenceSplit.Split(strings.TrimSpace(line), -1))
-	word = trimPunc(word)
-
-	question := recipeLocationText(r) + fmt.Sprintf(
-		"%s, what is the %s word of the %s step?",
-		secLocator,
-		wordLoc,
-		lineLoc,
-	)
-	answer := word
-
-	return question, answer, true
-}
-
-// questionMakers holds the set of question makers that will be used to generate questions for ownership proof
-var questionMakers = []questionMaker{questionRecipeTitle, questionRecipeDescription, questionRecipeInstructions}
-
-// createOwnershipQuestions randomly selects recipes and generates questions & their answers that will prove someone has a copy of the book in front of them
-func createOwnershipQuestions(recipes []*Recipe, count int) ([]string, []string, error) {
-	rIDs := rand.Perm(len(recipes))
-
-	var questions []string
-	var answers []string
-	for _, rID := range rIDs {
-		for _, qmID := range rand.Perm(len(questionMakers)) {
-			q, a, ok := questionMakers[qmID](recipes[rID])
-			if !ok {
-				continue
-			}
-
-			questions = append(questions, q)
-			answers = append(answers, a)
-		}
-
-		if len(questions) >= count {
-			break
-		}
-	}
-
-	if len(questions) < count {
-		return nil, nil, fmt.Errorf("there are too few recipes to be able to generate %d questions", count)
-	}
-
-	return questions, answers, nil
 }
