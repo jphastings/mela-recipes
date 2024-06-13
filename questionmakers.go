@@ -18,6 +18,37 @@ var (
 	sentenceSplit = regexp.MustCompile(`\s+`)
 )
 
+//--- Generating questions ---
+
+func (pr *ProtectedRecipes) PrepareOwnershipQuestions() ([]string, []string, error) {
+	pr.questions = []string{}
+	pr.answers = []string{}
+	rIDs := rand.Perm(len(pr.unprotectedRecipes))
+
+	for _, rID := range rIDs {
+		for _, qmID := range rand.Perm(len(questionMakers)) {
+			q, a, ok := questionMakers[qmID](pr.unprotectedRecipes[rID])
+			if !ok {
+				continue
+			}
+
+			pr.questions = append(pr.questions, q)
+			pr.answers = append(pr.answers, a)
+			break
+		}
+
+		if len(pr.questions) >= questionCount {
+			break
+		}
+	}
+
+	if len(pr.questions) < questionCount {
+		return nil, nil, fmt.Errorf("there are too few recipes to be able to generate %d questions", questionCount)
+	}
+
+	return pr.questions, pr.answers, nil
+}
+
 //--- Question Maker functions ---
 
 // questionRecipeTitle returns a question asking for the title of a recipe, and the matching answer
@@ -76,6 +107,11 @@ func questionRecipeInstructions(r *Recipe) (string, string, bool) {
 	wordLoc, word := pickNamedListItem(sentenceSplit.Split(strings.TrimSpace(line), -1))
 	word = trimPunc(word)
 
+	// Phrasing improvement in English
+	if lineLoc == "last" {
+		lineLoc = "final"
+	}
+
 	question := recipeLocationText(r) + fmt.Sprintf(
 		"%s, what is the %s word of the %s step?",
 		secLocator,
@@ -91,9 +127,14 @@ func questionRecipeInstructions(r *Recipe) (string, string, bool) {
 
 // recipeLocationText is a helper function that produces (English) instructions for humans on finding a given recipe in a book
 func recipeLocationText(r *Recipe) string {
+	pageOrdinal := ""
+	if r.Book().RecipeNumber > 0 {
+		pageOrdinal = " " + ordinal(uint64(r.Book().RecipeNumber), true)
+	}
+
 	return fmt.Sprintf(
-		"Look at the %s recipe shown on page %s. ",
-		ordinal(uint64(r.Book().RecipeNumber), true),
+		"Look at the%s recipe on page %s. ",
+		pageOrdinal,
 		r.Book().Pages.First(),
 	)
 }

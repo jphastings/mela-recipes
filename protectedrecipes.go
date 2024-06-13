@@ -126,38 +126,7 @@ func ParseProtectedRecipes(r io.ReaderAt, size int64, onRecipe RecipeFunc, onOwn
 	return nil
 }
 
-func (pr *ProtectedRecipes) PrepareOwnershipQuestions() ([]string, []string, error) {
-	pr.questions = []string{}
-	pr.answers = []string{}
-	rIDs := rand.Perm(len(pr.unprotectedRecipes))
-
-	for _, rID := range rIDs {
-		for _, qmID := range rand.Perm(len(questionMakers)) {
-			q, a, ok := questionMakers[qmID](pr.unprotectedRecipes[rID])
-			if !ok {
-				continue
-			}
-
-			pr.questions = append(pr.questions, q)
-			pr.answers = append(pr.answers, a)
-
-			if len(pr.questions) >= questionCount {
-				break
-			}
-		}
-
-		if len(pr.questions) >= questionCount {
-			break
-		}
-	}
-
-	if len(pr.questions) < questionCount {
-		return nil, nil, fmt.Errorf("there are too few recipes to be able to generate %d questions", questionCount)
-	}
-
-	return pr.questions, pr.answers, nil
-}
-
+// Close determines an ownership-proving password, encrypts the recipes, and writes the protected recipes and a decryption guide into the .protectedrecipes zip.
 func (pr *ProtectedRecipes) Close() error {
 	if len(pr.questions) == 0 || len(pr.answers) == 0 {
 		return fmt.Errorf("a protected recipe file cannot be written and closed without PrepareOwnershipQuestions() first being called")
@@ -195,19 +164,27 @@ func (pr *ProtectedRecipes) Close() error {
 	return nil
 }
 
-func (pr *ProtectedRecipes) Add(r *Recipe) error {
-	if r.Book().ISBN13 == "" {
-		return fmt.Errorf("only recipes with an ISBN can be added to a protected recipes bundle")
+// Add queues up one or more recipes to be added to the .protectedrecipes file.
+// Note: the recipes (and all their content) must be held in memory until .Close() is called.
+func (pr *ProtectedRecipes) Add(recipes ...*Recipe) error {
+	var errs error
+	for _, recipe := range recipes {
+		if recipe.Book().ISBN13 == "" {
+			errs = errors.Join(errs, fmt.Errorf("only recipes with an ISBN can be added to a protected recipes bundle"))
+			continue
+		}
+
+		if len(pr.unprotectedRecipes) == 0 {
+			pr.isbn = recipe.Book().ISBN13
+		} else if pr.isbn != recipe.Book().ISBN13 {
+			errs = errors.Join(errs, fmt.Errorf("all recipes added to a protected recipes bundle must be from the same book (and have the same ISBN)"))
+			continue
+		}
+
+		pr.unprotectedRecipes = append(pr.unprotectedRecipes, recipe)
 	}
 
-	if len(pr.unprotectedRecipes) == 0 {
-		pr.isbn = r.Book().ISBN13
-	} else if pr.isbn != r.Book().ISBN13 {
-		return fmt.Errorf("all recipes added to a protected recipes bundle must be from the same book (and have the same ISBN)")
-	}
-
-	pr.unprotectedRecipes = append(pr.unprotectedRecipes, r)
-	return nil
+	return errs
 }
 
 // normalize normalizes text so that simple reading/inputting dissimilarities are corrected for
@@ -251,7 +228,7 @@ func createPassword(answers []string, requiredCorrect int) (string, []string, er
 		return "", nil, ErrInvalidAnswers
 	}
 
-	for x := ansCount; x < ansCount*2-requiredCorrect; x++ {
+	for x := ansCount; x <= ansCount*2-requiredCorrect; x++ {
 		y := poly.EvaluateAt(intField(x))
 		b64 := base64.RawStdEncoding.EncodeToString(y.Value.Bytes())
 		if x == ansCount {
@@ -266,8 +243,8 @@ func createPassword(answers []string, requiredCorrect int) (string, []string, er
 
 // derivePassword reverse engineers the password from provided answers and the additional point data needed
 func derivePassword(answers map[int]string, passwordX int, additionalPoints []string) (string, error) {
-	if len(answers)+len(additionalPoints) != passwordX {
-		return "", fmt.Errorf("incorrect number of answers provided: got %d, need %d", len(answers), passwordX)
+	if len(answers)+len(additionalPoints) < passwordX {
+		return "", fmt.Errorf("incorrect number of answers provided: got %d, need %d", len(answers), passwordX-len(additionalPoints))
 	}
 
 	var points []*interpolation.XYPoint
@@ -364,8 +341,8 @@ func determinePassword(questions, additionalPoints []string, onOwnershipTest Own
 	answers := make(map[int]string)
 	var errs error
 	for i, x := range qIDs {
-		maxAnswersRemaining := len(answers) + len(qIDs) - i
-		if maxAnswersRemaining < needAnswerCount {
+		answeredAndAnswerable := len(answers) + len(qIDs) - i
+		if answeredAndAnswerable < needAnswerCount {
 			break
 		}
 
@@ -379,6 +356,9 @@ func determinePassword(questions, additionalPoints []string, onOwnershipTest Own
 		}
 
 		answers[x] = ans
+		if len(answers) >= needAnswerCount {
+			break
+		}
 	}
 	if len(answers) < needAnswerCount {
 		return "", errors.Join(ErrNotEnoughAnswers, errs)

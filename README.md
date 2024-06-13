@@ -101,7 +101,7 @@ Any `.melarecipe` that has an `id` which is a URN meeting the [RFC-3187 spec](ht
 
 If that URN includes a valid `pages` f-component (see [RFC-8141§2.3](https://www.ietf.org/rfc/rfc8141.html#section-2.3.3)), then the recipe will be interpreted as being imported from from the page or pages labelled with the specific page numbers.
 
-If the URN _also_ includes a valid `recipe` f-component, then the recipe will be interpreted as coming from the Nth recipe on the first page referenced in `pages`. `0` represents "not explicitly specified, presumed the first recipe", `1` explicitly declares this recipe as the first one on the page, `2` explicitly as the second and so on. (Neatly resolving the awkward difference between humans and machines on zero-indexing).
+If the URN _also_ includes a valid `recipe` f-component, then the recipe will be interpreted as coming from the Nth recipe on the first page referenced in `pages`. `0` represents "not explicitly specified, presumed the first/only recipe on this page", `1` explicitly declares this recipe as the first one on the page, `2` explicitly as the second and so on. (Neatly resolving the awkward difference between humans and machines on zero-indexing).
 
 #### ISBN examples
 

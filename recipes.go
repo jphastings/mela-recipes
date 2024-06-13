@@ -2,6 +2,7 @@ package mela
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -16,7 +17,7 @@ type Recipes struct {
 }
 
 type RecipesAdder interface {
-	Add(*Recipe) error
+	Add(...*Recipe) error
 	Close() error
 }
 
@@ -81,15 +82,19 @@ func (rs *Recipes) Close() error {
 	return rs.zip.Close()
 }
 
-func (rs *Recipes) Add(r *Recipe) error {
-	w, err := rs.zip.Create(r.Filename + ".melarecipe")
-	if err != nil {
-		return fmt.Errorf("unable to create recipe file in zip: %w", err)
+func (rs *Recipes) Add(recipes ...*Recipe) error {
+	var errs error
+	for _, recipe := range recipes {
+		w, err := rs.zip.Create(recipe.Filename + ".melarecipe")
+		if err != nil {
+			errs = errors.Join(errs, fmt.Errorf("unable to create recipe file in zip: %w", err))
+			continue
+		}
+
+		if err := json.NewEncoder(w).Encode(recipe); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("unable to encode recipe JSON into zip: %w", err))
+		}
 	}
 
-	if err := json.NewEncoder(w).Encode(r); err != nil {
-		return fmt.Errorf("unable to encode recipe JSON into zip: %w", err)
-	}
-
-	return nil
+	return errs
 }
