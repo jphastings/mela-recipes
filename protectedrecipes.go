@@ -449,10 +449,26 @@ func questionRecipeTitle(r *Recipe) (string, string, bool) {
 	return question, answer, true
 }
 
+// trimPunc trims punctuation from either end of a string
 func trimPunc(str string) string {
 	return strings.TrimFunc(str, func(r rune) bool {
 		return unicode.IsPunct(r)
 	})
+}
+
+// randMapItem returns a random key and (matched) value from from the given map
+func randMapItem[T comparable, U any](m map[T]U) (T, U) {
+	picked := rand.Intn(len(m))
+
+	i := 0
+	for k, v := range m {
+		if i == picked {
+			return k, v
+		}
+		i++
+	}
+	// We should never get here
+	panic("cannot select random map item from empty map")
 }
 
 var sentenceSplit = regexp.MustCompile(`\s+`)
@@ -476,21 +492,6 @@ func questionRecipeDescription(r *Recipe) (string, string, bool) {
 	answer := word
 
 	return question, answer, true
-}
-
-// randMapItem returns a random key and (matched) value from from the given map
-func randMapItem[T comparable, U any](m map[T]U) (T, U) {
-	picked := rand.Intn(len(m))
-
-	i := 0
-	for k, v := range m {
-		if i == picked {
-			return k, v
-		}
-		i++
-	}
-	// We should never get here
-	panic("cannot select random map item from empty map")
 }
 
 // questionRecipeInstructions returns a question asking about the instructions of a recipe, and the matching answer
