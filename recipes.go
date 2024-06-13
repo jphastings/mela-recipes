@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/yeka/zip"
 )
@@ -30,6 +31,10 @@ func ParseRecipes(r io.ReaderAt, size int64, onRecipe RecipeFunc) error {
 	}
 
 	for _, zf := range zr.File {
+		if !strings.HasSuffix(zf.Name, ".melarecipe") {
+			continue
+		}
+
 		rr, err := zf.Open()
 		if err != nil {
 			onRecipe(nil, err)
