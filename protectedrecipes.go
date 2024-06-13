@@ -30,7 +30,10 @@ type ProtectedRecipes struct {
 
 // OwnershipTestFunc is called if the recipes file being parsed requires proof of ownership to provide the details to decrypt.
 // A single question will be provided as the argument, and the answer should be returned. (It will be downcased, whitespace trimmed, and NFKC normalized)
-type OwnershipTestFunc func(string) (string, error)
+type OwnershipTestFunc func(question string) (answer string, err error)
+
+// OwnershipExplainFunc is called before the first time any answer is needed it can be used to set context of what's expected
+type OwnershipExplainFunc func(bookName string, questionCount, failCount int)
 
 var (
 	encMethod = zip.AES256Encryption
@@ -61,7 +64,7 @@ func newProtectedRecipes(w io.Writer) *ProtectedRecipes {
 }
 
 // ParseProtectedRecipes parses a known .protectedrecipes collection file (or .protectedrecipes file) into a stream of Recipe-compatible structs, calling the onRecipe func for each, as it is parsed.
-func ParseProtectedRecipes(r io.ReaderAt, size int64, onRecipe RecipeFunc, onOwnershipTest OwnershipTestFunc) error {
+func ParseProtectedRecipes(r io.ReaderAt, size int64, onRecipe RecipeFunc, onOwnershipTest OwnershipTestFunc, beforeOwnershipTest OwnershipExplainFunc) error {
 	zr, err := zip.NewReader(r, size)
 	if err != nil {
 		return fmt.Errorf("unable to open zip; %w", err)
@@ -97,7 +100,7 @@ func ParseProtectedRecipes(r io.ReaderAt, size int64, onRecipe RecipeFunc, onOwn
 		}
 		if zf.IsEncrypted() {
 			if password == "" {
-				password, err = determinePassword(questions, additionalPoints, onOwnershipTest, testPasswordOn(zf))
+				password, err = determinePassword(questions, additionalPoints, onOwnershipTest, beforeOwnershipTest, testPasswordOn(zf))
 				if err != nil {
 					return fmt.Errorf("unable to determine password: %w", err)
 				}
@@ -334,7 +337,7 @@ func intField(n int) *field.Field {
 type passwordTester func(string) (bool, error)
 
 // determinePassword uses the provided decryption details to ask questions (using the provided ownership testing func) and finds a password that meets the password tester
-func determinePassword(questions, additionalPoints []string, onOwnershipTest OwnershipTestFunc, isPasswordOK passwordTester) (string, error) {
+func determinePassword(questions, additionalPoints []string, onOwnershipTest OwnershipTestFunc, beforeOwnershipTest OwnershipExplainFunc, isPasswordOK passwordTester) (string, error) {
 	needAnswerCount := len(questions) - len(additionalPoints)
 	qIDs := rand.Perm(len(questions))
 
@@ -344,6 +347,10 @@ func determinePassword(questions, additionalPoints []string, onOwnershipTest Own
 		answeredAndAnswerable := len(answers) + len(qIDs) - i
 		if answeredAndAnswerable < needAnswerCount {
 			break
+		}
+
+		if i == 0 {
+			beforeOwnershipTest("TODO: Book name", needAnswerCount, len(additionalPoints))
 		}
 
 		ans, err := onOwnershipTest(questions[x])

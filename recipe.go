@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -38,10 +39,30 @@ var ErrInvalidMelaRecipesFile = errors.New("given file is not a melarecipes file
 
 const ZipFileMagicBytes = "PK\x03\x04"
 
+type openOptions struct {
+	ownershipExplainer OwnershipExplainFunc
+	ownershipTester    OwnershipTestFunc
+}
+
+type OpenOption func(openOptions) openOptions
+
+func OpenProtectedRecipes(intro OwnershipExplainFunc, tester OwnershipTestFunc) OpenOption {
+	return func(oo openOptions) openOptions {
+		oo.ownershipExplainer = intro
+		oo.ownershipTester = tester
+		return oo
+	}
+}
+
 // Open is a smart, file-system based function for opening a .melarecipe or .melarecipes file from disk.
 // For simplicity's sake, it will silently ignore any invalid recipes within a .melarecipes file, use ParseRecipes for
 // greater control.
-func Open(filename string) ([]*Recipe, error) {
+func Open(filename string, opts ...OpenOption) ([]*Recipe, error) {
+	var oo openOptions
+	for _, opt := range opts {
+		oo = opt(oo)
+	}
+
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -72,13 +93,27 @@ func Open(filename string) ([]*Recipe, error) {
 	}
 
 	var recipes []*Recipe
-	err = ParseRecipes(f, fs.Size(), func(r *Recipe, inErr error) {
+	addRecipe := func(r *Recipe, inErr error) {
 		if inErr == nil {
 			recipes = append(recipes, r)
 		}
-	})
+	}
 
-	return recipes, err
+	if path.Ext(filename) == ".protectedrecipes" {
+		if oo.ownershipTester == nil {
+			return nil, fmt.Errorf("no option set for opening protected recipes")
+		}
+
+		if err := ParseProtectedRecipes(f, fs.Size(), addRecipe, oo.ownershipTester, oo.ownershipExplainer); err != nil {
+			return nil, fmt.Errorf("unable to extract protected recipe: %w", err)
+		}
+	} else {
+		if err := ParseRecipes(f, fs.Size(), addRecipe); err != nil {
+			return nil, fmt.Errorf("unable to extract recipe: %w", err)
+		}
+	}
+
+	return recipes, nil
 }
 
 func withoutExt(name string) string {

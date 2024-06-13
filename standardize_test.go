@@ -20,6 +20,7 @@ func TestRawRecipe_Standardize(t *testing.T) {
 		{"Just ISBN; simple", "_9782019453411_", "_9782019453411_", &Book{ISBN13: "9782019453411"}},
 		{"ISBN and pages", "isbn: 978-3-16-148410-0\npages: 52", "_9783161484100, p.52_", &Book{ISBN13: "9783161484100", Pages: Pages{PageRange{"52"}}}},
 		{"ISBN and pages; simple", "_9783161484100, p.52_", "_9783161484100, p.52_", &Book{ISBN13: "9783161484100", Pages: Pages{PageRange{"52"}}}},
+		{"ISBN and multiple pages; simple", "_9783161484100, p.52-54_", "_9783161484100, p.52-54_", &Book{ISBN13: "9783161484100", Pages: Pages{PageRange{"52", "54"}}}},
 		{"ISBN, pages, recipe", "ISBN 978-3-16-148410-0\nPages 52\nRecipe 2", "_9783161484100, p.52, 2nd_", &Book{ISBN13: "9783161484100", Pages: Pages{PageRange{"52"}}, RecipeNumber: 2}},
 		{"ISBN, pages, recipe; simple", "_9783161484100, p.52, 2nd_", "_9783161484100, p.52, 2nd_", &Book{ISBN13: "9783161484100", Pages: Pages{PageRange{"52"}}, RecipeNumber: 2}},
 		{"Recipe, no pages", "ISBN: 978-3-16-148410-0\nRecipe: 2", "Recipe: 2\n\n_9783161484100_", &Book{ISBN13: "9783161484100"}},
