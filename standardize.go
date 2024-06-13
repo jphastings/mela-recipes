@@ -36,9 +36,7 @@ func (r *Recipe) Standardize(useNetwork bool) error {
 	}
 
 	if useNetwork {
-		if err := linkFromOpenLibrary(r); err != nil {
-			return err
-		}
+		_ = linkFromOpenLibrary(r)
 	}
 
 	return nil
