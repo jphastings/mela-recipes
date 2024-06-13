@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -45,6 +46,8 @@ func main() {
 	}
 
 	for _, file := range inputFiles {
+		fmt.Printf("📚 Standardizing %s\n", path.Base(file))
+
 		recipes, err := mela.Open(file, mela.OpenProtectedRecipes(questionHelp, getAnswer))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error opening '%s': %v\n", file, err)
@@ -73,9 +76,8 @@ func main() {
 }
 
 func questionHelp(bookName string, questionCount, failCount int) {
-	fmt.Printf("❗️ This recipe bundle contains recipes from %s\n", bookName)
-	fmt.Printf("📖 To extract them you will need a copy of the book.\n")
-	fmt.Printf("✅ You must answer %d of the following questions correctly.\n", questionCount)
+	fmt.Printf("❗️ This recipe bundle contains recipes from %s. To extract them you will need a copy of this book.\n", bookName)
+	fmt.Printf("✅ You must answer %d of the following questions correctly to extract recipes from it.\n", questionCount)
 	if failCount > 0 {
 		var upto string
 		switch failCount {
