@@ -46,7 +46,7 @@ func main() {
 	}
 
 	for _, file := range inputFiles {
-		fmt.Printf("📚 Standardizing %s\n", path.Base(file))
+		fmt.Printf("📚 Extracting & standardizing %s\n", path.Base(file))
 
 		recipes, err := mela.Open(file, mela.OpenProtectedRecipes(questionHelp, getAnswer))
 		if err != nil {

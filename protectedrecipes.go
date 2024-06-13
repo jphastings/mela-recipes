@@ -19,8 +19,9 @@ import (
 )
 
 type ProtectedRecipes struct {
-	zip  *zip.Writer
-	isbn string
+	zip         *zip.Writer
+	isbn        string
+	defaultName string
 
 	unprotectedRecipes []*Recipe
 
@@ -57,9 +58,10 @@ func init() {
 	}
 }
 
-func newProtectedRecipes(w io.Writer) *ProtectedRecipes {
+func newProtectedRecipes(w io.Writer, name string) *ProtectedRecipes {
 	return &ProtectedRecipes{
-		zip: zip.NewWriter(w),
+		zip:         zip.NewWriter(w),
+		defaultName: name,
 	}
 }
 

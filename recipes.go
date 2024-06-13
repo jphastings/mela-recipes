@@ -13,7 +13,8 @@ import (
 )
 
 type Recipes struct {
-	zip *zip.Writer
+	zip         *zip.Writer
+	defaultName string
 }
 
 type RecipesAdder interface {
@@ -70,11 +71,12 @@ func NewRecipesBundle(dir, name string, protect bool) (RecipesAdder, error) {
 	}
 
 	if protect {
-		return newProtectedRecipes(f), nil
+		return newProtectedRecipes(f, name), nil
 	}
 
 	return &Recipes{
-		zip: zip.NewWriter(f),
+		zip:         zip.NewWriter(f),
+		defaultName: name,
 	}, nil
 }
 
@@ -89,6 +91,10 @@ func (rs *Recipes) Add(recipes ...*Recipe) error {
 		if err != nil {
 			errs = errors.Join(errs, fmt.Errorf("unable to create recipe file in zip: %w", err))
 			continue
+		}
+
+		if recipe.Link == "" {
+			recipe.Link = rs.defaultName
 		}
 
 		if err := json.NewEncoder(w).Encode(recipe); err != nil {
