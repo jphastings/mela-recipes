@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func (r *Recipe) Standardize(network bool) error {
+func (r *Recipe) Standardize(useNetwork bool) error {
 	r.Filename = stringToFilename(r.Title)
 
 	if err := bookFromNotes(r); err != nil {
@@ -35,7 +35,7 @@ func (r *Recipe) Standardize(network bool) error {
 		r.Images[i] = newImg
 	}
 
-	if network {
+	if useNetwork {
 		if err := linkFromOpenLibrary(r); err != nil {
 			return err
 		}
@@ -90,7 +90,7 @@ func bookFromNotes(r *Recipe) error {
 			return err
 		}
 
-		newNotes += fmt.Sprintf(", %s", ordinal(recipeNumber))
+		newNotes += fmt.Sprintf(", %s", ordinal(recipeNumber, false))
 	}
 
 	newNotes += "_"
@@ -104,7 +104,18 @@ func bookFromNotes(r *Recipe) error {
 	return nil
 }
 
-func ordinal(n uint64) string {
+func ordinal(n uint64, useWords bool) string {
+	if useWords {
+		switch n {
+		case 1:
+			return "first"
+		case 2:
+			return "second"
+		case 3:
+			return "third"
+		}
+	}
+
 	if (n%100)/10 == 1 {
 		return fmt.Sprintf("%dth", n)
 	}
