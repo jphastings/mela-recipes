@@ -54,7 +54,7 @@ func (pr *ProtectedRecipes) PrepareOwnershipQuestions() ([]string, []string, err
 // questionRecipeTitle returns a question asking for the title of a recipe, and the matching answer
 func questionRecipeTitle(r *Recipe) (string, string, bool) {
 	// Brackets means there's a subtitle which may be hard to interpret — skip it!
-	if r.Title == "" || strings.Contains(r.Title, "(") {
+	if r.Title == "" || strings.Contains(r.Title, "(") || strings.Contains(r.Title, "[") {
 		return "", "", false
 	}
 
