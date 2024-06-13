@@ -56,6 +56,11 @@ func (p Pages) String() string {
 	return strings.Join(parts, ",")
 }
 
+// First returns the first page number specified across the represented sets of pages
+func (p Pages) First() string {
+	return p[0][0]
+}
+
 // CorrectContractions returns a new Pages object replacing page spans like "145-6" with the more explicit "145-146"
 func (p Pages) CorrectContractions() Pages {
 	newP := make(Pages, len(p))
