@@ -12,17 +12,17 @@ type Book struct {
 	RecipeNumber uint
 }
 
-func (r *Recipe) Book() *Book {
+func (r *Recipe) Book() Book {
 	nameString := strings.SplitN(r.ID, "#", 2)
 
 	assignedName := strings.SplitN(nameString[0], ":", 3)
 	if len(assignedName) < 3 || assignedName[0] != "urn" || assignedName[1] != "isbn" {
-		return nil
+		return Book{}
 	}
 
 	isbn13, err := validateISBN(assignedName[2])
 	if err != nil {
-		return nil
+		return Book{}
 	}
 
 	var pages Pages
@@ -41,12 +41,12 @@ func (r *Recipe) Book() *Book {
 			case "pages":
 				pages, err = ParsePages(keyVal[1])
 				if err != nil {
-					return nil
+					return Book{}
 				}
 			case "recipe":
 				recipeNumber, err = strconv.ParseUint(keyVal[1], 10, 64)
 				if err != nil {
-					return nil
+					return Book{}
 				}
 			}
 		}
@@ -56,7 +56,7 @@ func (r *Recipe) Book() *Book {
 		recipeNumber = 0
 	}
 
-	return &Book{
+	return Book{
 		ISBN13:       isbn13,
 		Pages:        pages,
 		RecipeNumber: uint(recipeNumber),

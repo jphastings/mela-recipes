@@ -142,7 +142,7 @@ type getResponse struct {
 }
 
 func linkFromOpenLibrary(r *Recipe) error {
-	if r.Book() == nil {
+	if r.Book().ISBN13 == "" {
 		return nil
 	}
 
