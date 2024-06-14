@@ -13,7 +13,7 @@ type questionMaker func(*Recipe) (string, string, bool)
 
 var (
 	// questionMakers holds the set of question makers that will be used to generate questions for ownership proof
-	questionMakers = []questionMaker{questionRecipeTitle, questionRecipeDescription, questionRecipeInstructions}
+	questionMakers = []questionMaker{questionRecipeTitle, questionRecipeDescription, questionRecipeInstructions, questionRecipeInstructionsSteps}
 	// sentenceSplit is the regular expression used to split a sentence into words
 	sentenceSplit = regexp.MustCompile(`\s+`)
 )
@@ -119,6 +119,33 @@ func questionRecipeInstructions(r *Recipe) (string, string, bool) {
 		lineLoc,
 	)
 	answer := word
+
+	return question, answer, true
+}
+
+// questionRecipeInstructionsSteps returns a question asking how many instruction steps the recipe has, and the matching answer
+func questionRecipeInstructionsSteps(r *Recipe) (string, string, bool) {
+	if r.Instructions == "" {
+		return "", "", false
+	}
+
+	lines := r.Instructions.Parse()
+	secName, secLines := randMapItem(lines)
+	if secLines == nil {
+		return "", "", false
+	}
+	var secLocator string
+	if secName == "" {
+		secLocator = "recipe"
+	} else {
+		secLocator = fmt.Sprintf("part of the recipe's instructions labeled '%s'", secName)
+	}
+
+	question := recipeLocationText(r) + fmt.Sprintf(
+		"How many steps does the %s have (as a number)?",
+		secLocator,
+	)
+	answer := fmt.Sprintf("%d", len(secLines))
 
 	return question, answer, true
 }
