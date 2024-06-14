@@ -42,8 +42,8 @@ var (
 )
 
 const (
-	questionCount       = 7
-	requiredAnswerCount = 3
+	questionCount       = 8
+	requiredAnswerCount = 4
 	minWordLength       = 4
 
 	questionsFile       = "_decrypting.txt"
