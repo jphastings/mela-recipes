@@ -1,6 +1,7 @@
 package mela
 
 import (
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,6 +37,9 @@ type Recipe struct {
 var ErrInvalidMelaFile = errors.New("given file is neither a melarecipe nor a melarecipes file")
 var ErrInvalidMelaRecipeFile = errors.New("given file is not a melarecipe file")
 var ErrInvalidMelaRecipesFile = errors.New("given file is not a melarecipes file")
+
+//go:embed melarecipe.schema.json
+var JSONSchema string
 
 const ZipFileMagicBytes = "PK\x03\x04"
 

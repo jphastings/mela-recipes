@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mela Recipe Format",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Identifier. For recipes imported from the web, Mela uses the URL (without schema) as identifier, otherwise just a UUID. If you're creating a melarecipe file for importing, make sure this is not empty."
+    },
+    "title": {
+      "type": "string",
+      "description": "Title of the recipe."
+    },
+    "text": {
+      "type": "string",
+      "description": "Short description of the recipe which is displayed after the title and info in Mela.\nSupported Markdown: Links."
+    },
+    "images": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of base64 encoded images."
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of category names.\nPlease note that Mela currently does not allow `,` in a category name."
+    },
+    "yield": {
+      "type": "string",
+      "description": "Yield or servings."
+    },
+    "prepTime": {
+      "type": "string",
+      "description": "Preparation time."
+    },
+    "cookTime": {
+      "type": "string",
+      "description": "Cook time."
+    },
+    "totalTime": {
+      "type": "string",
+      "description": "Total time it takes to prepare and cook the dish.\nThis does not have to be the sum of prepTime and cookTime (but mostly is)."
+    },
+    "ingredients": {
+      "type": "string",
+      "description": "Ingredients, separated by `\\n`.\nSupported Markdown: Links and `#` for group titles."
+    },
+    "instructions": {
+      "type": "string",
+      "description": "Instructions, separated by `\\n`.\nSupported Markdown: `#` `*` `**` and links."
+    },
+    "notes": {
+      "type": "string",
+      "description": "The notes that are displayed right after the instructions in Mela.\nSupported Markdown: `#` `*` `**` and links."
+    },
+    "nutrition": {
+      "type": "string",
+      "description": "Nutrition information.\nSupported Markdown: `#` `*` `**` and links."
+    },
+    "link": {
+      "type": "string",
+      "description": "This might be a bit misleading but this field does not have to contain an URL (it can). It's basically just the source of the recipe and will accept any string."
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "text",
+    "yield",
+    "prepTime",
+    "cookTime",
+    "totalTime",
+    "ingredients",
+    "instructions"
+  ],
+  "additionalProperties": true
+}
