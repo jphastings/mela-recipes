@@ -1,4 +1,4 @@
-package mela
+package recipecommon
 
 import (
 	"fmt"

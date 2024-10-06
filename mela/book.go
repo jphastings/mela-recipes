@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/jphastings/recipes/recipecommon"
 )
 
 type Book struct {
 	ISBN13       string
-	Pages        Pages
+	Pages        recipecommon.Pages
 	RecipeNumber uint
 }
 
@@ -25,7 +27,7 @@ func (r *Recipe) Book() Book {
 		return Book{}
 	}
 
-	var pages Pages
+	var pages recipecommon.Pages
 	var recipeNumber uint64
 
 	if len(nameString) == 2 {
@@ -39,7 +41,7 @@ func (r *Recipe) Book() Book {
 
 			switch keyVal[0] {
 			case "pages":
-				pages, err = ParsePages(keyVal[1])
+				pages, err = recipecommon.ParsePages(keyVal[1])
 				if err != nil {
 					return Book{}
 				}
@@ -63,7 +65,7 @@ func (r *Recipe) Book() Book {
 	}
 }
 
-func (r *Recipe) SetBook(isbn10or13 string, pages Pages, recipeNumber uint) error {
+func (r *Recipe) SetBook(isbn10or13 string, pages recipecommon.Pages, recipeNumber uint) error {
 	isbn13, err := validateISBN(isbn10or13)
 	if err != nil {
 		return err

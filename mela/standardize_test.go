@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	. "github.com/jphastings/recipes/mela"
+	. "github.com/jphastings/recipes/recipecommon"
 )
 
 func TestRawRecipe_Standardize(t *testing.T) {

@@ -28,6 +28,7 @@ Saved 'A title' to '/output/path/example.com/a-title.melarecipe'
 
 ```go global
 // import github.com/jphastings/recipes/mela
+// import github.com/jphastings/recipes/recipecommon
 ```
 
 The simple `Open` function is quickest for interacting with `.melarecipe` and `.melarecipes` files:
@@ -60,7 +61,7 @@ if err != nil {
 r := recipes[0]
 
 // Note: Setting the book details creates a new object with a URN based on a standardised form ISBN-13.
-setErr := r.SetBook("123456789X", mela.MustParsePages("42"), 2)
+setErr := r.SetBook("123456789X", recipecommon.MustParsePages("42"), 2)
 if setErr != nil {
   log.Fatalf("Invalid Book details given: %v\n", err)
 }

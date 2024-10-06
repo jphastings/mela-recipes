@@ -1,10 +1,10 @@
-package mela_test
+package recipecommon_test
 
 import (
 	"reflect"
 	"testing"
 
-	. "github.com/jphastings/recipes/mela"
+	. "github.com/jphastings/recipes/recipecommon"
 )
 
 func Test_ParsePages(t *testing.T) {

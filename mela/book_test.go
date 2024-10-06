@@ -3,6 +3,8 @@ package mela
 import (
 	"reflect"
 	"testing"
+
+	. "github.com/jphastings/recipes/recipecommon"
 )
 
 //

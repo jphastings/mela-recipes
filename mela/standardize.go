@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jphastings/recipes/recipecommon"
 )
 
 func (r *Recipe) Standardize(useNetwork bool) error {
@@ -70,11 +72,11 @@ func bookFromNotes(r *Recipe) error {
 
 	newNotes += fmt.Sprintf("_%s", isbn13)
 
-	var pages Pages
+	var pages recipecommon.Pages
 	var recipeNumber uint64
 
 	if matches[5] != "" {
-		pages, err = ParsePages(matches[5])
+		pages, err = recipecommon.ParsePages(matches[5])
 		if err != nil {
 			return err
 		}
