@@ -51,7 +51,7 @@
     },
     "instructions": {
       "type": "string",
-      "description": "Instructions, separated by `\\n`.\nSupported Markdown: `#` `*` `**` and links."
+      "description": "Instructions, separated by `\\n`, don't use bullet point numbers or markers.\nSupported Markdown: `#` `*` `**` and links."
     },
     "notes": {
       "type": "string",

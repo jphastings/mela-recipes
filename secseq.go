@@ -2,6 +2,7 @@ package mela
 
 import (
 	"regexp"
+	"strings"
 )
 
 type SectionedSequence string
@@ -23,4 +24,21 @@ func (ss SectionedSequence) Parse() map[string][]string {
 		sections[heading] = append(sections[heading], line)
 	}
 	return sections
+}
+
+func NewSectionedSequence(items map[string][]string) SectionedSequence {
+	var ss []string
+
+	if lines, ok := items[""]; ok {
+		ss = append(ss, lines...)
+	}
+	for heading, lines := range items {
+		if heading == "" {
+			continue
+		}
+
+		ss = append(ss, "# "+heading)
+		ss = append(ss, lines...)
+	}
+	return SectionedSequence(strings.Join(ss, "\n"))
 }
