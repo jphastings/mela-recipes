@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/jphastings/mela-recipes"
+	"github.com/jphastings/recipes/mela"
 )
 
 var (

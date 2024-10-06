@@ -11,13 +11,13 @@ func TestRawRecipe_Book(t *testing.T) {
 	type test struct {
 		name string
 		id   string
-		want *Book
+		want Book
 	}
 
 	tests := []test{
-		{"With no page reference", "urn:isbn:9782019453411", &Book{ISBN13: "9782019453411", Pages: nil, RecipeNumber: 0}},
-		{"With hyphenated ISBN", "urn:isbn:978-3-16-148410-0", &Book{ISBN13: "9783161484100", Pages: nil, RecipeNumber: 0}},
-		{"With pages", "urn:isbn:9782019453411#pages=vii,1,4-8,3%2D2,3%2D4-3%2D6", &Book{
+		{"With no page reference", "urn:isbn:9782019453411", Book{ISBN13: "9782019453411", Pages: nil, RecipeNumber: 0}},
+		{"With hyphenated ISBN", "urn:isbn:978-3-16-148410-0", Book{ISBN13: "9783161484100", Pages: nil, RecipeNumber: 0}},
+		{"With pages", "urn:isbn:9782019453411#pages=vii,1,4-8,3%2D2,3%2D4-3%2D6", Book{
 			ISBN13: "9782019453411",
 			Pages: Pages{
 				PageRange{"vii"},
@@ -27,13 +27,13 @@ func TestRawRecipe_Book(t *testing.T) {
 				PageRange{"3-4", "3-6"},
 			},
 			RecipeNumber: 0}},
-		{"With a recipe number", "urn:isbn:9782019453411#pages=52&recipe=2", &Book{ISBN13: "9782019453411", Pages: Pages{PageRange{"52"}}, RecipeNumber: 2}},
-		{"With recipe number but no pages", "urn:isbn:9782019453411#recipe=2", &Book{ISBN13: "9782019453411"}},
+		{"With a recipe number", "urn:isbn:9782019453411#pages=52&recipe=2", Book{ISBN13: "9782019453411", Pages: Pages{PageRange{"52"}}, RecipeNumber: 2}},
+		{"With recipe number but no pages", "urn:isbn:9782019453411#recipe=2", Book{ISBN13: "9782019453411"}},
 
-		{"With invalid ISBN check digit", "urn:isbn:9782019453413", nil},
-		{"With malformed ISBN", "urn:isbn:malformed#pages=52", nil},
-		{"No ISBN", "ACB628F3-DE6B-4833-A799-2B4F88CB0C1A", nil},
-		{"With URL", "example.org/path/to/something", nil},
+		{"With invalid ISBN check digit", "urn:isbn:9782019453413", Book{}},
+		{"With malformed ISBN", "urn:isbn:malformed#pages=52", Book{}},
+		{"No ISBN", "ACB628F3-DE6B-4833-A799-2B4F88CB0C1A", Book{}},
+		{"With URL", "example.org/path/to/something", Book{}},
 	}
 
 	for _, test := range tests {

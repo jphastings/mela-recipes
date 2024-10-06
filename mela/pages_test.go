@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	. "github.com/jphastings/mela-recipes"
+	. "github.com/jphastings/recipes/mela"
 )
 
 func Test_ParsePages(t *testing.T) {

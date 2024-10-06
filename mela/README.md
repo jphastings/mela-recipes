@@ -8,7 +8,7 @@ Includes customisations that define a convention for the ID of recipes derived f
 
 ### As a CLI tool
 
-The pre-compiled binaries are [available on Github](https://github.com/jphastings/mela-recipes/releases/latest). You can also install rapidly with Homebrew on Linux and macOS:
+The pre-compiled binaries are [available on Github](https://github.com/jphastings/recipes/releases/latest). You can also install rapidly with Homebrew on Linux and macOS:
 
 ```bash
 brew install jphastings/tools/mela-standardize
@@ -24,10 +24,10 @@ Saved 'A title' to '/output/path/example.com/a-title.melarecipe'
 
 ### As a library
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/jphastings/mela-recipes.svg)](https://pkg.go.dev/github.com/jphastings/mela-recipes)
+[![Go Reference](https://pkg.go.dev/badge/github.com/jphastings/recipes.svg)](https://pkg.go.dev/github.com/jphastings/recipes)
 
 ```go global
-// import github.com/jphastings/mela-recipes
+// import github.com/jphastings/recipes/mela
 ```
 
 The simple `Open` function is quickest for interacting with `.melarecipe` and `.melarecipes` files:
@@ -168,7 +168,7 @@ Look at the second recipe shown on page 14. What is the recipe's title (includin
 Look at the first recipe shown on page 105. How many steps does this recipe have?
 Look at the first recipe shown on page 123. In the recipe's instructions, what is the last word of the last step?
 Look at the first recipe shown on page 66. In the recipe's description, what is the last word of the first sentence?
-# Above are questions that allow the derivation of the password for the other files in this archive, below is additional machine information needed for the same. Please see https://github.com/jphastings/mela-recipes#proof-of-ownership-extension for specifics.
+# Above are questions that allow the derivation of the password for the other files in this archive, below is additional machine information needed for the same. Please see https://github.com/jphastings/recipes#proof-of-ownership-extension for specifics.
 S7yj6S74aoH+OHe13fSZyA
 a5D0f5T4cNy6WsVHs9YXGw
 F2rQyKGBPZiV58T8JYIq0Q

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jphastings/mela-recipes"
+	"github.com/jphastings/recipes/mela"
 )
 
 func TestParseRecipe(t *testing.T) {

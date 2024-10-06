@@ -1,0 +1,14 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  test:
+    cmd: |
+      go install github.com/tvastar/test/cmd/testmd@latest
+      testmd -o mela/README_test.go -pkg mela_test mela/README.md
+      if [[ "${CI}" = "TRUE" ]]; then
+        go test -json ./... > test-results.json
+      else
+        go test ./... && rm mela/README_test.go
+      fi

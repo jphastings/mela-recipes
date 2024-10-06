@@ -1,4 +1,4 @@
-project_name: mela-recipes
+project_name: recipes
 before:
   hooks:
     - go mod tidy
@@ -44,14 +44,14 @@ brews:
 
     commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
     folder: Formula
-    homepage: "https://github.com/jphastings/mela-recipes/"
+    homepage: "https://github.com/jphastings/recipes"
 
     description: "Standardize Mela recipe files."
     license: "MIT"
 
     custom_block: |
       resource("test.melarecipes") do
-        url "https://raw.githubusercontent.com/jphastings/mela-recipes/main/fixtures/a+b.melarecipes"
+        url "https://raw.githubusercontent.com/jphastings/recipes/main/mela/fixtures/a+b.melarecipes"
         sha256 "4f72c6ffb2f126adf5df5d79311dfec2335b463da16fe26deff19bdd5579e1b2"
       end
 

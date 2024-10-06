@@ -47,7 +47,7 @@ const (
 	minWordLength       = 4
 
 	questionsFile       = "_decrypting.txt"
-	decryptingExplainer = "# Above are questions that allow the derivation of the password for the other files in this archive, below is additional machine information needed for the same. Please see https://github.com/jphastings/mela-recipes#proof-of-ownership-extension for specifics."
+	decryptingExplainer = "# Above are questions that allow the derivation of the password for the other files in this archive, below is additional machine information needed for the same. Please see https://github.com/jphastings/recipes#proof-of-ownership-extension for specifics."
 )
 
 func init() {
