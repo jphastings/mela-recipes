@@ -22,7 +22,7 @@ func (r *Recipe) Standardize(useNetwork bool) error {
 	}
 
 	if r.Images == nil {
-		r.Images = make([]B64Image, 0)
+		r.Images = make([]recipecommon.B64Image, 0)
 	}
 
 	if r.Categories == nil {

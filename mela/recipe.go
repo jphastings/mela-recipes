@@ -11,6 +11,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/jphastings/recipes/recipecommon"
 )
 
 type Recipe struct {
@@ -25,11 +27,11 @@ type Recipe struct {
 	Categories   []string          `json:"categories"`
 	Notes        string            `json:"notes"`
 
-	Images    []B64Image    `json:"images"`
-	Yield     PeopleCount   `json:"yield"`
-	PrepTime  MaybeDuration `json:"prepTime"`
-	CookTime  MaybeDuration `json:"cookTime"`
-	TotalTime MaybeDuration `json:"totalTime"`
+	Images    []recipecommon.B64Image `json:"images"`
+	Yield     PeopleCount             `json:"yield"`
+	PrepTime  MaybeDuration           `json:"prepTime"`
+	CookTime  MaybeDuration           `json:"cookTime"`
+	TotalTime MaybeDuration           `json:"totalTime"`
 
 	standardizationsMade []string
 }
