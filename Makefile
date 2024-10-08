@@ -1,3 +1,5 @@
+gen:
+	@go generate ./...
 test:
 	@go install github.com/tvastar/test/cmd/testmd@latest
 	@testmd -o mela/README_test.go -pkg mela_test mela/README.md
