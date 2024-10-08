@@ -12,10 +12,8 @@ type Recipe interface {
 	// - Optimising any images attached
 	// - Extracting and standardising the ISBN & physical book data found in the notes field, if one is present
 	Standardize() error
-	// Mutates the recipe in this format into the interchange format
-	ToInterchange() (InterchangeRecipe, error)
-	// Creates a recipe in this format from the provided interchange recipe
-	FromInterchange(InterchangeRecipe) (Recipe, error)
+	// Mutates the recipe in this format into the interchange format.
+	Export() (InterchangeRecipe, error)
 }
 
 // Represents a collection of recipes held in a specific format

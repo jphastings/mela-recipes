@@ -10,6 +10,8 @@ type Format struct {
 	Extension string
 	// Whether this format is a collection format
 	IsCollection bool
+	// Turns an interchange recipe format into this format
+	Import func(InterchangeRecipe) (Recipe, error)
 }
 
 // A generic and internal structure for recipes that is used for conversion
