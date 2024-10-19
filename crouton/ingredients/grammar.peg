@@ -1,0 +1,144 @@
+{
+  package ingredients
+
+  import (
+    "math/big"
+  )
+}
+
+Ingredient <-
+  (a:Amount _Space? {
+    return a, nil
+  })?
+  (u:Unit " of"? _Space {
+    return u, nil
+  })?
+  (name:String {
+    return name, nil
+  })
+  !.
+
+String <- .+ {
+  return string(c.text), nil
+}
+
+Amount <- (WordNumbers / (ff:Fraction " a"? { return ff, nil }) / Decimal / (i:Integer f:Fraction? {
+  if f != nil {
+    return new(big.Rat).Add(i.(*big.Rat), f.(*big.Rat)), nil
+  }
+  return i, nil
+}))
+
+WordNumbers <- (
+  'a' {
+    return big.NewRat(1, 1), nil
+  } / 
+  "half" " a"? {
+    return big.NewRat(1, 2), nil
+  }
+)
+
+Integer <- [0-9]+ {
+  i, err := strconv.Atoi(string(c.text))
+  if err != nil {
+    return nil, err
+  }
+  return big.NewRat(int64(i), 1), nil
+}
+
+Fraction <- (
+  '½' {
+    return big.NewRat(1, 2), nil
+  } /
+  '⅓' {
+    return big.NewRat(1, 3), nil
+  } /
+  '¼' {
+    return big.NewRat(1, 4), nil
+  } /
+  '⅛' {
+    return big.NewRat(1, 8), nil
+  } /
+  '⅔' {
+    return big.NewRat(2, 3), nil
+  } /
+  '¾' {
+    return big.NewRat(3, 4), nil
+  } /
+  '⅜' {
+    return big.NewRat(3, 8), nil
+  } /
+  '⅝' {
+    return big.NewRat(5, 8), nil
+  } /
+  '⅞' {
+    return big.NewRat(7, 8), nil
+  }
+)
+
+Decimal <- [0-9]+ '.' [0-9]+ {
+  r, ok := (&big.Rat{}).SetString(string(c.text))
+  if !ok {
+    return nil, fmt.Errorf("unprocessable decimal string: %s", c.text)
+  }
+  return r, nil
+}
+
+Unit <- (
+  ('a' &' ' {
+    return UnitItem, nil
+  }) /
+  ("bunch" "es"? {
+    return UnitBunch, nil
+  }) /
+  ("pinch" "es"? {
+    return UnitPinch, nil
+  }) /
+  (("tablespoon" / "tbsp") 's'? {
+    return UnitTablespoon, nil
+  }) /
+  (("teaspoon" / "tsp") 's'? {
+    return UnitTeaspoon, nil
+  }) /
+  ("cup" 's'? {
+    return UnitCup, nil
+  }) /
+  (("gram" / "g") 's'? {
+    return UnitGram, nil
+  }) /
+  (("kilogram" / "kg") 's'? {
+    return UnitKilogram, nil
+  }) /
+  (("pound" / "lb") 's'? {
+    return UnitPound, nil
+  }) /
+  (("ounce" / "oz") 's'? {
+    return UnitOunce, nil
+  }) /
+  (("millilitre" / "ml") 's'? {
+    return UnitMillilitre, nil
+  }) /
+  (("centilitre" / "cl") 's'? {
+    return UnitCentilitre, nil
+  }) /
+  (("decilitre" / "dl") 's'? {
+    return UnitDecilitre, nil
+  }) /
+  (("litre" / "l") 's'? {
+    return UnitLitre, nil
+  }) /
+  (("fl" ("uid" / '.')?) ' '? ("o" ("unce" 's'? / 'z' '.'?)) {
+    return UnitFluidOunce, nil
+  }) /
+  ("bottle" 's'? {
+    return UnitBottle, nil
+  }) /
+  ("can" 's'? {
+    return UnitCan, nil
+  }) /
+  ("packet" 's'? {
+    return UnitPacket, nil
+  })
+)
+
+_Space <- ' '

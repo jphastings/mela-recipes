@@ -4,9 +4,9 @@ before:
     - go mod tidy
 
 builds:
-  - id: mela-standardize
-    main: ./cmd/mela-standardize
-    binary: mela-standardize
+  - id: recipes
+    main: ./cmd/recipes
+    binary: recipes
     ldflags:
       - -s -w -X main.version={{.Version}} -X main.commit={{.ShortCommit}} -X main.date={{.Date}}
     env:
@@ -36,7 +36,7 @@ archives:
       format: zip
 
 brews:
-  - name: mela-standardize
+  - name: recipes
     download_strategy: CurlDownloadStrategy
     commit_author:
       name: goreleaserbot
@@ -57,7 +57,7 @@ brews:
 
     test: |
       resource("test.melarecipes").stage do
-        shell_output("#{bin}/mela-standardize test.melarecipes \"#{testpath}\"")
+        shell_output("#{bin}/recipes comvert --to \"#{testpath}/.melarecipe\"")
         assert_predicate testpath/"example.com/a-title.melarecipe", :exist?
         assert_predicate testpath/"example.com/b-title.melarecipe", :exist?
       end
