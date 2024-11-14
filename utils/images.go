@@ -1,4 +1,4 @@
-package recipecommon
+package utils
 
 import (
 	"bytes"
@@ -15,20 +15,20 @@ import (
 
 type B64Image []byte
 
-func (i B64Image) Optimize() (B64Image, error) {
+func (i B64Image) Optimize() (B64Image, bool, error) {
 	return i.OptimizeWithConfig(512, 512)
 }
 
-func (i B64Image) OptimizeWithConfig(maxWidth, maxHeight int) (B64Image, error) {
+func (i B64Image) OptimizeWithConfig(maxWidth, maxHeight int) (B64Image, bool, error) {
 	img, imgType, err := image.Decode(bytes.NewReader(i))
 	if err != nil {
-		return i, err
+		return i, false, err
 	}
 
 	var wasResized bool
 	img, wasResized = resizeImage(img, maxWidth, maxHeight)
 	if !wasResized && (imgType == "jpeg") {
-		return i, nil
+		return i, false, nil
 	}
 
 	opts := jpegli.EncodingOptions{
@@ -38,10 +38,10 @@ func (i B64Image) OptimizeWithConfig(maxWidth, maxHeight int) (B64Image, error) 
 
 	buf := new(bytes.Buffer)
 	if err := jpegli.Encode(buf, img, &opts); err != nil {
-		return i, err
+		return i, false, err
 	}
 
-	return buf.Bytes(), nil
+	return buf.Bytes(), true, nil
 }
 
 func resizeImage(src image.Image, maxWidth, maxHeight int) (image.Image, bool) {

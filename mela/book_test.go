@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	. "github.com/jphastings/recipes/recipecommon"
+	. "github.com/jphastings/recipes/utils"
 )
 
 //

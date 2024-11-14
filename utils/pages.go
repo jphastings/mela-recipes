@@ -1,4 +1,4 @@
-package recipecommon
+package utils
 
 import (
 	"fmt"

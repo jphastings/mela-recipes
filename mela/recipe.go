@@ -4,19 +4,18 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/url"
-	"os"
-	"path"
-	"path/filepath"
-	"strings"
 
-	"github.com/jphastings/recipes/recipecommon"
+	"github.com/jphastings/recipes/internal/formats"
+	"github.com/jphastings/recipes/internal/standardize"
+	"github.com/jphastings/recipes/utils"
 )
 
+var _ formats.Recipe = (*Recipe)(nil)
+
 type Recipe struct {
-	Filename     string            `json:"-"`
+	filename     string            `json:"-"`
 	ID           string            `json:"id"`
 	Title        string            `json:"title"`
 	Link         string            `json:"link"`
@@ -27,14 +26,16 @@ type Recipe struct {
 	Categories   []string          `json:"categories"`
 	Notes        string            `json:"notes"`
 
-	Images    []recipecommon.B64Image `json:"images"`
-	Yield     PeopleCount             `json:"yield"`
-	PrepTime  MaybeDuration           `json:"prepTime"`
-	CookTime  MaybeDuration           `json:"cookTime"`
-	TotalTime MaybeDuration           `json:"totalTime"`
-
-	standardizationsMade []string
+	Images    []utils.B64Image `json:"images"`
+	Yield     PeopleCount      `json:"yield"`
+	PrepTime  MaybeDuration    `json:"prepTime"`
+	CookTime  MaybeDuration    `json:"cookTime"`
+	TotalTime MaybeDuration    `json:"totalTime"`
 }
+
+func (r Recipe) Name() string           { return r.Title }
+func (r Recipe) Format() formats.Format { return format }
+func (r Recipe) Filename() string       { return r.filename + "." + format.Extension }
 
 var ErrInvalidMelaFile = errors.New("given file is neither a melarecipe nor a melarecipes file")
 var ErrInvalidMelaRecipeFile = errors.New("given file is not a melarecipe file")
@@ -42,90 +43,6 @@ var ErrInvalidMelaRecipesFile = errors.New("given file is not a melarecipes file
 
 //go:embed melarecipe.schema.json
 var JSONSchema string
-
-const ZipFileMagicBytes = "PK\x03\x04"
-
-type openOptions struct {
-	ownershipExplainer OwnershipExplainFunc
-	ownershipTester    OwnershipTestFunc
-}
-
-type OpenOption func(openOptions) openOptions
-
-func OpenProtectedRecipes(intro OwnershipExplainFunc, tester OwnershipTestFunc) OpenOption {
-	return func(oo openOptions) openOptions {
-		oo.ownershipExplainer = intro
-		oo.ownershipTester = tester
-		return oo
-	}
-}
-
-// Open is a smart, file-system based function for opening a .melarecipe or .melarecipes file from disk.
-// For simplicity's sake, it will silently ignore any invalid recipes within a .melarecipes file, use ParseRecipes for
-// greater control.
-func Open(filename string, opts ...OpenOption) ([]*Recipe, error) {
-	var oo openOptions
-	for _, opt := range opts {
-		oo = opt(oo)
-	}
-
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	fs, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	magic := make([]byte, 4)
-	i, err := f.ReadAt(magic, 0)
-	if err != nil {
-		return nil, err
-	}
-	if i < 4 {
-		return nil, ErrInvalidMelaFile
-	}
-
-	if magic[0] == '{' {
-		r, err := ParseRecipe(f)
-		r.Filename = withoutExt(filename)
-		return []*Recipe{r}, err
-	}
-
-	if string(magic) != ZipFileMagicBytes {
-		return nil, ErrInvalidMelaFile
-	}
-
-	var recipes []*Recipe
-	addRecipe := func(r *Recipe, inErr error) {
-		if inErr == nil {
-			recipes = append(recipes, r)
-		}
-	}
-
-	if path.Ext(filename) == ".protectedrecipes" {
-		if oo.ownershipTester == nil {
-			return nil, fmt.Errorf("no option set for opening protected recipes")
-		}
-
-		if err := ParseProtectedRecipes(f, fs.Size(), addRecipe, oo.ownershipTester, oo.ownershipExplainer); err != nil {
-			return nil, fmt.Errorf("unable to extract protected recipe: %w", err)
-		}
-	} else {
-		if err := ParseRecipes(f, fs.Size(), addRecipe); err != nil {
-			return nil, fmt.Errorf("unable to extract recipe: %w", err)
-		}
-	}
-
-	return recipes, nil
-}
-
-func withoutExt(name string) string {
-	ext := filepath.Ext(name)
-	return name[0 : len(name)-len(ext)]
-}
 
 // ParseRecipe parses a known single .melarecipe file into a Recipe-compatible struct
 func ParseRecipe(r io.Reader) (*Recipe, error) {
@@ -142,32 +59,9 @@ func sourceName(linkField string) string {
 		return u.Host
 	}
 
-	return kebabCaser.ReplaceAllString(strings.ToLower(linkField), "-")
+	return standardize.StringToFilename(linkField)
 }
 
-func (r *Recipe) Save(dir string) (string, error) {
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		return "", fmt.Errorf("output directory '%s' does not exist", dir)
-	}
-
-	data, err := json.Marshal(r)
-	if err != nil {
-		return "", fmt.Errorf("unable to marshal recipe: %w", err)
-	}
-
-	destination := filepath.Join(dir, sourceName(r.Link), r.Filename+".melarecipe")
-	if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {
-		return "", fmt.Errorf("unable to create recipe directory '%s': %w", filepath.Dir(destination), err)
-	}
-
-	f, err := os.Create(destination)
-	if err != nil {
-		return "", fmt.Errorf("unable to create recipe file: %w", err)
-	}
-
-	if _, err := f.Write(data); err != nil {
-		return "", fmt.Errorf("unable to write data to recipe file: %w", err)
-	}
-
-	return destination, nil
+func (r *Recipe) Marshal(w io.Writer) error {
+	return json.NewEncoder(w).Encode(r)
 }

@@ -1,106 +1,99 @@
 package mela
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path"
 	"strings"
 
+	"github.com/jphastings/recipes/internal/formats"
 	"github.com/yeka/zip"
 )
 
-type Recipes struct {
-	zip         *zip.Writer
-	defaultName string
+var _ formats.RecipeCollection = (*RecipeCollection)(nil)
+
+type RecipeCollection struct {
+	name     string
+	filename string
+	recipes  []*Recipe
 }
 
-type RecipesAdder interface {
-	Add(...*Recipe) error
-	Close() error
-}
-
-// RecipeFunc returns the (streaming) result of parsing a recipe out of a .melarecipes file
-type RecipeFunc func(*Recipe, error)
-
-// ParseRecipe parses a known .melarecipes collection file into a stream of Recipe-compatible structs, calling the onRecipe func for each, as it is parsed.
-func ParseRecipes(r io.ReaderAt, size int64, onRecipe RecipeFunc) error {
+// ParseRecipe parses a known .melarecipes collection file into a RecipeCollection compatible struct.
+func ParseRecipes(r io.ReaderAt, size int64) (*RecipeCollection, error) {
 	zr, err := zip.NewReader(r, size)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	rs := &RecipeCollection{}
+
 	for _, zf := range zr.File {
-		if !strings.HasSuffix(zf.Name, ".melarecipe") {
+		if !strings.HasSuffix(zf.Name, "."+recipeExt) {
 			continue
 		}
 
 		rr, err := zf.Open()
 		if err != nil {
-			onRecipe(nil, err)
+			return rs, err
 		}
 		defer rr.Close()
 
 		if recipe, err := ParseRecipe(rr); err != nil {
-			onRecipe(nil, err)
+			return rs, err
 		} else {
-			recipe.Filename = withoutExt(zf.Name)
-			onRecipe(recipe, nil)
+			recipe.filename = withoutExt(zf.Name)
+			rs.recipes = append(rs.recipes, recipe)
+		}
+	}
+
+	return rs, nil
+}
+
+func (rc *RecipeCollection) Filename() string       { return rc.filename + "." + format.ExtensionCollection }
+func (rc *RecipeCollection) Format() formats.Format { return format }
+
+func (rc *RecipeCollection) Add(rs ...formats.Recipe) error {
+	for _, ir := range rs {
+		if r, ok := ir.(*Recipe); ok {
+			rc.recipes = append(rc.recipes, r)
+		} else {
+			// TODO: convert
+			return fmt.Errorf("the provided recipe is not of a format that can be stored in a .melarecipes collection")
 		}
 	}
 
 	return nil
 }
 
-// NewRecipesBundle creates a .melarecipes (zip file) and allows writing new recipes directly to it with .Add().
-//
-// If protect argument is true then a .protectedrecipes (zip file) will be created, password protecting all recipe files in a way that requires proof of ownership to decrypt.
-// Note that if protect is true then all recipes must have the same ISBN, and all are held in memory before data is written (which may become large).
-func NewRecipesBundle(dir, name string, protect bool) (RecipesAdder, error) {
-	ext := "melarecipes"
-	if protect {
-		ext = "protectedrecipes"
+func (rs *RecipeCollection) Recipes() []formats.Recipe {
+	out := make([]formats.Recipe, len(rs.recipes))
+	for i, r := range rs.recipes {
+		out[i] = formats.Recipe(r)
 	}
-
-	filename := path.Join(dir, stringToFilename(name)+"."+ext)
-	f, err := os.OpenFile(filename, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
-	if err != nil {
-		return nil, err
-	}
-
-	if protect {
-		return newProtectedRecipes(f, name), nil
-	}
-
-	return &Recipes{
-		zip:         zip.NewWriter(f),
-		defaultName: name,
-	}, nil
+	return out
 }
 
-func (rs *Recipes) Close() error {
-	return rs.zip.Close()
-}
+func (rc *RecipeCollection) Marshal(w io.Writer) error {
+	z := zip.NewWriter(w)
+	defer z.Close()
 
-func (rs *Recipes) Add(recipes ...*Recipe) error {
 	var errs error
-	for _, recipe := range recipes {
-		w, err := rs.zip.Create(recipe.Filename + ".melarecipe")
+	for _, recipe := range rc.recipes {
+		w, err := z.Create(recipe.filename + ".melarecipe")
 		if err != nil {
 			errs = errors.Join(errs, fmt.Errorf("unable to create recipe file in zip: %w", err))
 			continue
 		}
 
-		if recipe.Link == "" {
-			recipe.Link = rs.defaultName
-		}
-
-		if err := json.NewEncoder(w).Encode(recipe); err != nil {
+		if err := recipe.Marshal(w); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("unable to encode recipe JSON into zip: %w", err))
 		}
 	}
 
 	return errs
+}
+
+func (rc *RecipeCollection) Name() string {
+	// TODO: this needs a fallback
+	return rc.name
 }

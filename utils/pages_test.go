@@ -1,10 +1,10 @@
-package recipecommon_test
+package utils_test
 
 import (
 	"reflect"
 	"testing"
 
-	. "github.com/jphastings/recipes/recipecommon"
+	. "github.com/jphastings/recipes/utils"
 )
 
 func Test_ParsePages(t *testing.T) {

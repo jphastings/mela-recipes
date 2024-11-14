@@ -2,18 +2,20 @@ package crouton
 
 import (
 	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
+	"io"
 
-	"github.com/jphastings/crouton-recipes/ingredients"
-	"github.com/jphastings/crouton-recipes/uuid"
+	"github.com/jphastings/recipes/crouton/ingredients"
+	"github.com/jphastings/recipes/internal/formats"
+	"github.com/jphastings/recipes/internal/standardize"
+	"github.com/jphastings/recipes/internal/uuid"
 )
 
+var _ formats.Recipe = (*Recipe)(nil)
+
 type Recipe struct {
-	Filename        string                      `json:"-"`
+	filename        string                      `json:"-"`
 	UUID            uuid.UUID                   `json:"uuid"`
-	Name            string                      `json:"name"`
+	RecipeName      string                      `json:"name"`
 	SourceName      string                      `json:"sourceName"`
 	Ingredients     []ingredients.IngredientUse `json:"ingredients"`
 	Serves          PeopleCount                 `json:"serves,omitempty"`
@@ -24,45 +26,22 @@ type Recipe struct {
 	Images          []B64Image                  `json:"images,omitempty"`
 	Notes           string                      `json:"notes,omitempty"`
 	SenderName      string                      `json:"senderName"`
-
-	standardizationsMade []string
 }
+
+func (r Recipe) Name() string           { return r.RecipeName }
+func (r Recipe) Format() formats.Format { return format }
+func (r Recipe) Filename() string       { return r.filename + "." + format.Extension }
 
 type Link string
 
 func (r *Recipe) ensureFilename() {
-	if r.Filename != "" {
+	if r.filename != "" {
 		return
 	}
 
-	r.Filename = stringToFilename(r.Name)
+	r.filename = standardize.StringToFilename(r.RecipeName)
 }
 
-func (r *Recipe) Save(dir string) (string, error) {
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		return "", fmt.Errorf("output directory '%s' does not exist", dir)
-	}
-
-	data, err := json.Marshal(r)
-	if err != nil {
-		return "", fmt.Errorf("unable to marshal recipe: %w", err)
-	}
-
-	r.ensureFilename()
-
-	destination := filepath.Join(dir, stringToFilename(r.SourceName), r.Filename+".crumb")
-	if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {
-		return "", fmt.Errorf("unable to create recipe directory '%s': %w", filepath.Dir(destination), err)
-	}
-
-	f, err := os.Create(destination)
-	if err != nil {
-		return "", fmt.Errorf("unable to create recipe file: %w", err)
-	}
-
-	if _, err := f.Write(data); err != nil {
-		return "", fmt.Errorf("unable to write data to recipe file: %w", err)
-	}
-
-	return destination, nil
+func (r *Recipe) Marshal(w io.Writer) error {
+	return json.NewEncoder(w).Encode(r)
 }

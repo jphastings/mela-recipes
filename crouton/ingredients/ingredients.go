@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/jphastings/crouton-recipes/uuid"
+	"github.com/jphastings/recipes/internal/uuid"
 )
 
 type IngredientUse struct {

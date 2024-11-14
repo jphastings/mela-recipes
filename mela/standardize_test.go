@@ -4,8 +4,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/jphastings/recipes/internal/standardize"
 	. "github.com/jphastings/recipes/mela"
-	. "github.com/jphastings/recipes/recipecommon"
+	. "github.com/jphastings/recipes/utils"
 )
 
 func TestRawRecipe_Standardize(t *testing.T) {
@@ -37,10 +38,17 @@ func TestRawRecipe_Standardize(t *testing.T) {
 
 	fallbackBook := Book{ISBN13: "9781786699503"}
 
+	expStds := []standardize.Std{standardize.StdISBN}
 	for _, test := range tests {
 		r := &Recipe{ID: "urn:isbn:" + fallbackBook.ISBN13, Notes: test.notes}
-		if err := r.Standardize(false); err != nil {
+
+		stds, err := r.Standardize()
+		if err != nil {
 			t.Errorf("Error standardizing for '%s': %v", test.name, err)
+		}
+
+		if !reflect.DeepEqual(expStds, stds) {
+			t.Errorf("Expected declaration of standardizing ISBN '%s': want = %#v, got = %#v", test.name, expStds, stds)
 		}
 
 		if reflect.DeepEqual(test.wantBook, Book{}) {

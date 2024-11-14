@@ -11,45 +11,57 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jphastings/recipes/recipecommon"
+	"github.com/jphastings/recipes/internal/standardize"
+	"github.com/jphastings/recipes/utils"
 )
 
-func (r *Recipe) Standardize(useNetwork bool) error {
-	r.Filename = stringToFilename(r.Title)
+func (r *Recipe) Standardize() ([]standardize.Std, error) {
+	var stds []standardize.Std
+	var stdApplied bool
+	if r.filename, stdApplied = standardize.Filename(r.filename, r.Title); stdApplied {
+		stds = append(stds, standardize.StdFilename)
+	}
 
-	if err := bookFromNotes(r); err != nil {
-		return err
+	if stdApplied, err := bookFromNotes(r); err == nil {
+		return nil, err
+	} else if stdApplied {
+		stds = append(stds, standardize.StdISBN)
 	}
 
 	if r.Images == nil {
-		r.Images = make([]recipecommon.B64Image, 0)
+		r.Images = make([]utils.B64Image, 0)
 	}
 
 	if r.Categories == nil {
 		r.Categories = make([]string, 0)
 	}
 
+	var imagesResized bool
 	for i, img := range r.Images {
-		newImg, err := img.Optimize()
+		newImg, ok, err := img.Optimize()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		r.Images[i] = newImg
+		imagesResized = imagesResized || ok
+	}
+	if imagesResized {
+		stds = append(stds, standardize.StdImages)
 	}
 
-	if useNetwork {
-		_ = linkFromOpenLibrary(r)
-	}
+	// if useNetwork {
+	// 	_ = linkFromOpenLibrary(r)
+	// }
 
-	return nil
+	return stds, nil
 }
 
 var extractor = regexp.MustCompile(`(?i)(\s*)((?:isbn:? ?|_)([0-9X-]+)\r?\n?((?:, p\.|pages?:? ?)([^_\s,]+)\r?\n?((?:recipe:? ?|, )?(\d+)(?:[a-z]{2})?\r?\n?)?)?)_?(\s*)`)
 
-func bookFromNotes(r *Recipe) error {
+func bookFromNotes(r *Recipe) (bool, error) {
 	matches := extractor.FindStringSubmatch(r.Notes)
 	if matches == nil {
-		return nil
+		return false, nil
 	}
 
 	var newNotes string
@@ -67,18 +79,18 @@ func bookFromNotes(r *Recipe) error {
 
 	isbn13, err := validateISBN(matches[3])
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	newNotes += fmt.Sprintf("_%s", isbn13)
 
-	var pages recipecommon.Pages
+	var pages utils.Pages
 	var recipeNumber uint64
 
 	if matches[5] != "" {
-		pages, err = recipecommon.ParsePages(matches[5])
+		pages, err = utils.ParsePages(matches[5])
 		if err != nil {
-			return err
+			return false, err
 		}
 
 		newNotes += fmt.Sprintf(", p.%s", pages.String())
@@ -87,7 +99,7 @@ func bookFromNotes(r *Recipe) error {
 	if matches[7] != "" && pages != nil {
 		recipeNumber, err = strconv.ParseUint(matches[7], 10, 64)
 		if err != nil {
-			return err
+			return false, err
 		}
 
 		newNotes += fmt.Sprintf(", %s", ordinal(recipeNumber, false))
@@ -96,12 +108,11 @@ func bookFromNotes(r *Recipe) error {
 	newNotes += "_"
 
 	if err := r.SetBook(isbn13, pages, uint(recipeNumber)); err != nil {
-		return err
+		return false, err
 	}
 	r.Notes = newNotes
-	r.standardizationsMade = append(r.standardizationsMade, fmt.Sprintf("extracted Book details from notes: %v", r.Book()))
 
-	return nil
+	return true, nil
 }
 
 func ordinal(n uint64, useWords bool) string {
@@ -233,8 +244,4 @@ func linkFromOpenLibrary(r *Recipe) error {
 
 	r.Link = get.Result.Title
 	return nil
-}
-
-func (r *Recipe) ListStandardizations() []string {
-	return r.standardizationsMade
 }

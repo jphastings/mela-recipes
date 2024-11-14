@@ -1,4 +1,4 @@
-package crouton
+package standardize
 
 import (
 	"regexp"
@@ -13,11 +13,16 @@ import (
 var kebabCaser = regexp.MustCompile(`[^a-z0-9]+`)
 var removeAccents = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 
-func stringToFilename(str string) string {
+func StringToFilename(str string) string {
 	norm, _, _ := transform.String(removeAccents, str)
 	return strings.Trim(
 		kebabCaser.ReplaceAllString(
 			strings.ReplaceAll(strings.ToLower(norm), "'", ""),
 			"-"),
 		"-")
+}
+
+func Filename(oldFilename, title string) (string, bool) {
+	newFilename := StringToFilename(title)
+	return newFilename, newFilename != oldFilename
 }

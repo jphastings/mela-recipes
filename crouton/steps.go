@@ -1,6 +1,6 @@
 package crouton
 
-import "github.com/jphastings/crouton-recipes/uuid"
+import "github.com/jphastings/recipes/internal/uuid"
 
 type Steps []Step
 
