@@ -29,8 +29,8 @@ type Recipe struct {
 }
 
 func (r Recipe) Name() string           { return r.RecipeName }
-func (r Recipe) Format() formats.Format { return format }
-func (r Recipe) Filename() string       { return r.filename + "." + format.Extension }
+func (r Recipe) Format() formats.Format { return FormatInfo }
+func (r Recipe) Filename() string       { return r.filename + FormatInfo.Extension }
 
 type Link string
 

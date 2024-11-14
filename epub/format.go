@@ -2,27 +2,23 @@ package epub
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/jphastings/recipes/internal/formats"
 )
 
 const (
-	collectionExt = "epub"
+	collectionExt = ".epub"
 )
 
-var format = formats.Format{
+var FormatInfo = formats.Format{
 	Name: "ePub",
 	URL:  "https://en.wikipedia.org/wiki/EPUB",
 	Features: formats.Features{
 		ParseCollection: true,
 	},
 	ExtensionCollection: collectionExt,
-	Parse: func(*os.File) (formats.Recipe, formats.RecipeCollection, error) {
+	Parse: func(formats.Bundle) (formats.Recipe, formats.RecipeCollection, error) {
 		return nil, nil, fmt.Errorf("ePub parsing not yet implemented")
 	},
-}
-
-func init() {
-	formats.Register(format)
+	Bundle: formats.BundleByExtension(collectionExt),
 }

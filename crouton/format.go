@@ -1,10 +1,14 @@
 package crouton
 
-import "github.com/jphastings/recipes/internal/formats"
+import (
+	"fmt"
 
-const recipeExt = "crumb"
+	"github.com/jphastings/recipes/internal/formats"
+)
 
-var format = formats.Format{
+const recipeExt = ".crumb"
+
+var FormatInfo = formats.Format{
 	Name: "Crouton",
 	URL:  "https://crouton.app",
 	Features: formats.Features{
@@ -13,8 +17,8 @@ var format = formats.Format{
 	},
 	Extension: recipeExt,
 	New:       newFromInterchange,
-}
-
-func init() {
-	formats.Register(format)
+	Parse: func(formats.Bundle) (formats.Recipe, formats.RecipeCollection, error) {
+		return nil, nil, fmt.Errorf("crouton parsing not yet implemented")
+	},
+	Bundle: formats.BundleByExtension(recipeExt),
 }

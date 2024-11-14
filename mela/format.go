@@ -3,17 +3,16 @@ package mela
 import (
 	"os"
 	"path"
-	"strings"
 
 	"github.com/jphastings/recipes/internal/formats"
 )
 
 const (
-	recipeExt     = "melarecipe"
-	collectionExt = "melarecipes"
+	recipeExt     = ".melarecipe"
+	collectionExt = ".melarecipes"
 )
 
-var format = formats.Format{
+var FormatInfo = formats.Format{
 	Name: "Mela",
 	URL:  "https://mela.recipes",
 	Features: formats.Features{
@@ -27,19 +26,21 @@ var format = formats.Format{
 	New:                 newFromInterchange,
 	NewCollection:       newFromInterchangeCollection,
 	Parse:               Parse,
-}
-
-func init() {
-	formats.Register(format)
+	Bundle:              formats.BundleByExtension(recipeExt, collectionExt),
 }
 
 const ZipFileMagicBytes = "PK\x03\x04"
 
-func Parse(f *os.File) (formats.Recipe, formats.RecipeCollection, error) {
-	filename := path.Base(f.Name())
-	ext := strings.TrimPrefix(path.Ext(filename), ".")
+func Parse(b formats.Bundle) (formats.Recipe, formats.RecipeCollection, error) {
+	filename := b[0]
+	ext := path.Ext(filename)
 	if ext != recipeExt && ext != collectionExt {
 		return nil, nil, nil
+	}
+
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	fs, err := f.Stat()
@@ -67,8 +68,11 @@ func Parse(f *os.File) (formats.Recipe, formats.RecipeCollection, error) {
 	}
 
 	rs, err := ParseRecipes(f, fs.Size())
+	if err != nil {
+		return nil, nil, err
+	}
 	rs.filename = withoutExt(filename)
-	return nil, rs, err
+	return nil, rs, nil
 }
 
 func withoutExt(name string) string {

@@ -28,7 +28,7 @@ func ParseRecipes(r io.ReaderAt, size int64) (*RecipeCollection, error) {
 	rs := &RecipeCollection{}
 
 	for _, zf := range zr.File {
-		if !strings.HasSuffix(zf.Name, "."+recipeExt) {
+		if !strings.HasSuffix(zf.Name, recipeExt) {
 			continue
 		}
 
@@ -49,8 +49,8 @@ func ParseRecipes(r io.ReaderAt, size int64) (*RecipeCollection, error) {
 	return rs, nil
 }
 
-func (rc *RecipeCollection) Filename() string       { return rc.filename + "." + format.ExtensionCollection }
-func (rc *RecipeCollection) Format() formats.Format { return format }
+func (rc *RecipeCollection) Filename() string       { return rc.filename + FormatInfo.ExtensionCollection }
+func (rc *RecipeCollection) Format() formats.Format { return FormatInfo }
 
 func (rc *RecipeCollection) Add(rs ...formats.Recipe) error {
 	for _, ir := range rs {

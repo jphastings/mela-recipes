@@ -14,13 +14,20 @@ var convertCmd = &cobra.Command{
 	Short: "Convert recipes between different formats",
 	Long:  longExplain(),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		rs, rc, err := recipes.ParseAll(args)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(len(rs), rc)
 		return fmt.Errorf("convert command not yet implemented")
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(convertCmd)
-	convertCmd.Flags().String("to", "", "Destination filename, extension, or format")
+	convertCmd.Flags().String("to", "", "The filename, extension, or format to convert into")
+	convertCmd.MarkFlagRequired("to")
 }
 
 func longExplain() string {
