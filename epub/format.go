@@ -12,14 +12,14 @@ const (
 )
 
 var format = formats.Format{
-	Name: "ePub cookbook",
+	Name: "ePub",
 	URL:  "https://en.wikipedia.org/wiki/EPUB",
 	Features: formats.Features{
 		ParseCollection: true,
 	},
 	ExtensionCollection: collectionExt,
 	Parse: func(*os.File) (formats.Recipe, formats.RecipeCollection, error) {
-		return nil, nil, fmt.Errorf("epub parsing not yet implemented")
+		return nil, nil, fmt.Errorf("ePub parsing not yet implemented")
 	},
 }
 

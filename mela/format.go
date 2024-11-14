@@ -15,7 +15,7 @@ const (
 
 var format = formats.Format{
 	Name: "Mela",
-	URL:  "https://mela.recipes/",
+	URL:  "https://mela.recipes",
 	Features: formats.Features{
 		ParseRecipe:     true,
 		WriteRecipe:     true,

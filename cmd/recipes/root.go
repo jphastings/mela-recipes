@@ -27,8 +27,8 @@ func main() {
 }
 
 func init() {
-	rootCmd.Flags().Bool("out-here", false, "Output files in the current working directory")
-	rootCmd.Flags().Bool("out-there", true, "Output files in the same directory as the source data")
-	rootCmd.Flags().String("out-dir", "", "Output files to the given directory")
+	rootCmd.PersistentFlags().Bool("out-here", false, "Output files in the current working directory")
+	rootCmd.PersistentFlags().Bool("out-there", true, "Output files in the same directory as the source data")
+	rootCmd.PersistentFlags().String("out-dir", "", "Output files to the given directory")
 	rootCmd.MarkFlagsMutuallyExclusive("out-here", "out-there", "out-dir")
 }

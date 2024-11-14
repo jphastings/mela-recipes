@@ -27,11 +27,24 @@ type Format struct {
 	Parse func(*os.File) (Recipe, RecipeCollection, error)
 }
 
+// An indication of the features a format's implementation can provide
 type Features struct {
 	ParseRecipe     bool
 	WriteRecipe     bool
 	ParseCollection bool
 	WriteCollection bool
+}
+
+// The list of the extensions (with periods) the format works with
+func (f Format) Extensions() []string {
+	var out []string
+	if f.Extension != "" {
+		out = append(out, "."+f.Extension)
+	}
+	if f.ExtensionCollection != "" {
+		out = append(out, "."+f.ExtensionCollection)
+	}
+	return out
 }
 
 // A generic and internal structure for recipes that is used for conversion

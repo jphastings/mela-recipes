@@ -8,12 +8,12 @@ import (
 )
 
 const (
-	collectionExt = "epub"
+	collectionExt = "cook"
 )
 
 var format = formats.Format{
 	Name: "Cooklang",
-	URL:  "https://cooklang.org/",
+	URL:  "https://cooklang.org",
 	Features: formats.Features{
 		ParseRecipe: true,
 	},
