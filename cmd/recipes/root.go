@@ -1,7 +1,4 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-*/
-package cmd
+package main
 
 import (
 	"fmt"
@@ -21,7 +18,7 @@ var rootCmd = &cobra.Command{
 	Long:  `Tools for parsing, building, and converting cookbook recipe formats. Supports Mela, Crouton, Paprika, and Cooklang formats as well as extracting from ePub cook books.`,
 }
 
-func Execute() {
+func main() {
 	err := rootCmd.Execute()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "The command failed: %v\n", err)

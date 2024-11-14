@@ -46,7 +46,7 @@ brews:
     folder: Formula
     homepage: "https://github.com/jphastings/recipes"
 
-    description: "Standardize Mela recipe files."
+    description: "Cookbook recipe format toolbox."
     license: "MIT"
 
     custom_block: |
@@ -57,7 +57,7 @@ brews:
 
     test: |
       resource("test.melarecipes").stage do
-        shell_output("#{bin}/recipes comvert --to \"#{testpath}/.melarecipe\"")
+        shell_output("#{bin}/recipes convert --to \"#{testpath}/.melarecipe\"")
         assert_predicate testpath/"example.com/a-title.melarecipe", :exist?
         assert_predicate testpath/"example.com/b-title.melarecipe", :exist?
       end
