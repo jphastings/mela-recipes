@@ -77,7 +77,7 @@ func bookFromNotes(r *Recipe) (bool, error) {
 		newNotes = around[0] + matches[1] + around[1] + "\n\n"
 	}
 
-	isbn13, err := validateISBN(matches[3])
+	isbn13, err := utils.StandardizeISBN(matches[3])
 	if err != nil {
 		return false, err
 	}

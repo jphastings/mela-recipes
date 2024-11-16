@@ -1,4 +1,4 @@
-package mela
+package utils
 
 import (
 	"errors"
@@ -12,7 +12,8 @@ var ErrIncorrectISBN10 = errors.New("the given ISBN-10 has an incorrect digit")
 var ErrInvalidISBN13 = errors.New("the given string has 13 digits, but is not a valid ISBN-13")
 var ErrIncorrectISBN13 = errors.New("the given ISBN-13 has an incorrect digit")
 
-func validateISBN(isbn10or13 string) (string, error) {
+// Checks the provided ISN-10 or ISBN-13 (including its check digit) and returns a uniformly structured ISBN-13 (containing no hyphens)
+func StandardizeISBN(isbn10or13 string) (string, error) {
 	isbn10or13 = strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(isbn10or13, " ", ""), "-", ""))
 
 	switch len(isbn10or13) {

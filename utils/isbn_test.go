@@ -1,4 +1,4 @@
-package mela
+package utils
 
 import (
 	"testing"
@@ -61,7 +61,7 @@ func Test_isbn13CheckDigit(t *testing.T) {
 	}
 }
 
-func Test_validateISBN(t *testing.T) {
+func Test_StandardizeISBN(t *testing.T) {
 	type test struct {
 		input    string
 		wantISBN string
@@ -89,7 +89,7 @@ func Test_validateISBN(t *testing.T) {
 		{"9780198526613", "", ErrIncorrectISBN13},
 	}
 	for _, test := range tests {
-		gotISBN, gotErr := validateISBN(test.input)
+		gotISBN, gotErr := StandardizeISBN(test.input)
 		if gotErr != test.wantErr {
 			t.Errorf("Error response incorrect for %s: want = %v, got = %v", test.input, test.wantErr, gotErr)
 			continue
