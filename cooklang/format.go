@@ -11,23 +11,23 @@ import (
 )
 
 const (
-	collectionExt = ".cook"
+	recipeExt = ".cook"
 )
 
-var FormatInfo = formats.Format{
+var FormatInfo = &formats.Format{
 	Name: "Cooklang",
 	URL:  "https://cooklang.org",
 	Features: formats.Features{
 		ParseRecipe: true,
 	},
-	ExtensionCollection: collectionExt,
-	Parse: func(formats.Bundle) (formats.Recipe, formats.RecipeCollection, error) {
+	Extension: recipeExt,
+	Parse: func(formats.Bundle, formats.ParseOptions) (formats.Recipe, formats.RecipeCollection, error) {
 		return nil, nil, fmt.Errorf("cooklang parsing not yet implemented")
 	},
 	Bundle: bundle,
 }
 
-var bundleExts = []string{collectionExt, ".jpg", ".jpeg", ".png"}
+var bundleExts = []string{recipeExt, ".jpg", ".jpeg", ".png"}
 var sectionSuffix = regexp.MustCompile(`\.\d+$`)
 
 func bundle(files []string) (bundles []formats.Bundle, unused []string) {
@@ -40,7 +40,7 @@ func bundle(files []string) (bundles []formats.Bundle, unused []string) {
 			continue
 		}
 		k := strings.TrimSuffix(f, ext)
-		if ext != collectionExt {
+		if ext != recipeExt {
 			k = sectionSuffix.ReplaceAllString(k, "")
 		}
 		idx[k] = append(idx[k], f)

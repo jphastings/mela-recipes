@@ -2,3 +2,4 @@
 /README_test.go
 /dist/
 /test-results.json
+.env

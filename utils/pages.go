@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -11,11 +12,13 @@ import (
 type Pages []PageRange
 type PageRange []string
 
+var pageSplit = regexp.MustCompile(`[-–—]`)
+
 func ParsePages(pages string) (Pages, error) {
 	var pageRanges []PageRange
 	parts := strings.Split(pages, ",")
 	for _, prs := range parts {
-		ps := strings.Split(prs, "-")
+		ps := pageSplit.Split(prs, -1)
 		if len(ps) > 2 {
 			return nil, fmt.Errorf("invalid page range: %s", prs)
 		}
@@ -28,6 +31,7 @@ func ParsePages(pages string) (Pages, error) {
 			if pr[i], err = url.QueryUnescape(p); err != nil {
 				return nil, fmt.Errorf("invalid URL encoding: %s", p)
 			}
+			pr[i] = strings.TrimSpace(pr[i])
 		}
 		pageRanges = append(pageRanges, pr)
 	}

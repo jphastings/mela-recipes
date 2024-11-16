@@ -1,6 +1,9 @@
 package recipes
 
 import (
+	"path"
+	"strings"
+
 	"github.com/jphastings/recipes/cooklang"
 	"github.com/jphastings/recipes/crouton"
 	"github.com/jphastings/recipes/epub"
@@ -8,8 +11,8 @@ import (
 	"github.com/jphastings/recipes/mela"
 )
 
-func AvailableFormats() []formats.Format {
-	return []formats.Format{
+func AvailableFormats() []*formats.Format {
+	return []*formats.Format{
 		mela.FormatInfo,
 		crouton.FormatInfo,
 		epub.FormatInfo,
@@ -19,7 +22,7 @@ func AvailableFormats() []formats.Format {
 
 // Attempts to find a suitable format & parser for all the recipe files given. All found recipes are returned in the first argument, the second argument holds the details of the collection if the input files represent *exactly and only one* collection.
 // If no collections are represented, or the files represent a collection *and* other recipes or collections, then this second return value will be nil.
-func ParseAll(files []string) ([]formats.Recipe, formats.RecipeCollection, error) {
+func ParseAll(files []string, o formats.ParseOptions) ([]formats.Recipe, formats.RecipeCollection, error) {
 	countCollections := 0
 	var soloCollection formats.RecipeCollection
 	var rs []formats.Recipe
@@ -29,7 +32,7 @@ func ParseAll(files []string) ([]formats.Recipe, formats.RecipeCollection, error
 		files = unused
 
 		for _, b := range bundles {
-			r, rc, err := f.Parse(b)
+			r, rc, err := f.Parse(b, o)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -52,4 +55,33 @@ func ParseAll(files []string) ([]formats.Recipe, formats.RecipeCollection, error
 	}
 
 	return rs, soloCollection, nil
+}
+
+type AsType string
+
+const (
+	AsTypeAny        AsType = "any"
+	AsTypeRecipe     AsType = "recipe"
+	AsTypeCollection AsType = "collection"
+)
+
+func ParseDestination(to string) (overrideFilename string, asType AsType, format *formats.Format) {
+	ext := path.Ext(to)
+	if ext != "" && ext != to {
+		overrideFilename = to
+	}
+
+	for _, f := range AvailableFormats() {
+		if f.Extension != "" && f.Extension == ext {
+			return overrideFilename, AsTypeRecipe, f
+		}
+		if f.ExtensionCollection != "" && f.ExtensionCollection == ext {
+			return overrideFilename, AsTypeCollection, f
+		}
+		if strings.EqualFold(to, f.Name) {
+			return "", AsTypeAny, f
+		}
+	}
+
+	return "", AsTypeAny, nil
 }

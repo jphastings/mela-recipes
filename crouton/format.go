@@ -8,7 +8,7 @@ import (
 
 const recipeExt = ".crumb"
 
-var FormatInfo = formats.Format{
+var FormatInfo = &formats.Format{
 	Name: "Crouton",
 	URL:  "https://crouton.app",
 	Features: formats.Features{
@@ -16,8 +16,8 @@ var FormatInfo = formats.Format{
 		WriteRecipe: true,
 	},
 	Extension: recipeExt,
-	New:       newFromInterchange,
-	Parse: func(formats.Bundle) (formats.Recipe, formats.RecipeCollection, error) {
+	New:       importRecipe,
+	Parse: func(formats.Bundle, formats.ParseOptions) (formats.Recipe, formats.RecipeCollection, error) {
 		return nil, nil, fmt.Errorf("crouton parsing not yet implemented")
 	},
 	Bundle: formats.BundleByExtension(recipeExt),

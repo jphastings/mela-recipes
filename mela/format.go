@@ -1,6 +1,7 @@
 package mela
 
 import (
+	"fmt"
 	"os"
 	"path"
 
@@ -12,7 +13,7 @@ const (
 	collectionExt = ".melarecipes"
 )
 
-var FormatInfo = formats.Format{
+var FormatInfo = &formats.Format{
 	Name: "Mela",
 	URL:  "https://mela.recipes",
 	Features: formats.Features{
@@ -23,19 +24,19 @@ var FormatInfo = formats.Format{
 	},
 	Extension:           recipeExt,
 	ExtensionCollection: collectionExt,
-	New:                 newFromInterchange,
-	NewCollection:       newFromInterchangeCollection,
+	New:                 importRecipe,
+	NewCollection:       importCollection,
 	Parse:               Parse,
 	Bundle:              formats.BundleByExtension(recipeExt, collectionExt),
 }
 
 const ZipFileMagicBytes = "PK\x03\x04"
 
-func Parse(b formats.Bundle) (formats.Recipe, formats.RecipeCollection, error) {
+func Parse(b formats.Bundle, _ formats.ParseOptions) (formats.Recipe, formats.RecipeCollection, error) {
 	filename := b[0]
 	ext := path.Ext(filename)
 	if ext != recipeExt && ext != collectionExt {
-		return nil, nil, nil
+		return nil, nil, fmt.Errorf("doesn't appear to be a Mela recipe or collection file")
 	}
 
 	f, err := os.Open(filename)

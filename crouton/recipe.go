@@ -28,9 +28,9 @@ type Recipe struct {
 	SenderName      string                      `json:"senderName"`
 }
 
-func (r Recipe) Name() string           { return r.RecipeName }
-func (r Recipe) Format() formats.Format { return FormatInfo }
-func (r Recipe) Filename() string       { return r.filename + FormatInfo.Extension }
+func (r Recipe) Name() string            { return r.RecipeName }
+func (r Recipe) Format() *formats.Format { return FormatInfo }
+func (r Recipe) Filename() string        { return r.filename + FormatInfo.Extension }
 
 type Link string
 

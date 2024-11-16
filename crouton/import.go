@@ -1,13 +1,11 @@
 package crouton
 
 import (
+	"fmt"
+
 	"github.com/jphastings/recipes/internal/formats"
 )
 
-func newFromInterchange(ir formats.InterchangeRecipe) (formats.Recipe, error) {
-	return &Recipe{
-		filename:   ir.Filename,
-		RecipeName: ir.Title,
-		// TODO: Other fields
-	}, nil
+func importRecipe(ir formats.Recipe) (formats.Recipe, error) {
+	return nil, fmt.Errorf("importing to crouton not yet supported")
 }

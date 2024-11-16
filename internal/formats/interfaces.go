@@ -11,7 +11,7 @@ type Recipe interface {
 	// The name of the recipe
 	Name() string
 	// The format this recipe is in
-	Format() Format
+	Format() *Format
 	// Returns the stored filename (with extension), or an appropriate generated one
 	Filename() string
 	// Destructively applies all standardizations to this recipe, returning
@@ -31,7 +31,7 @@ type RecipeCollection interface {
 	// The name of the recipe collection
 	Name() string
 	// The format this recipe collection is in
-	Format() Format
+	Format() *Format
 	// Returns the stored filename (with extension), or an appropriate generated one
 	Filename() string
 	// Adds the provided recipe to this collection

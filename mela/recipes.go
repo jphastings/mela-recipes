@@ -49,8 +49,8 @@ func ParseRecipes(r io.ReaderAt, size int64) (*RecipeCollection, error) {
 	return rs, nil
 }
 
-func (rc *RecipeCollection) Filename() string       { return rc.filename + FormatInfo.ExtensionCollection }
-func (rc *RecipeCollection) Format() formats.Format { return FormatInfo }
+func (rc *RecipeCollection) Filename() string        { return rc.filename + FormatInfo.ExtensionCollection }
+func (rc *RecipeCollection) Format() *formats.Format { return FormatInfo }
 
 func (rc *RecipeCollection) Add(rs ...formats.Recipe) error {
 	for _, ir := range rs {
@@ -65,9 +65,9 @@ func (rc *RecipeCollection) Add(rs ...formats.Recipe) error {
 	return nil
 }
 
-func (rs *RecipeCollection) Recipes() []formats.Recipe {
-	out := make([]formats.Recipe, len(rs.recipes))
-	for i, r := range rs.recipes {
+func (rc *RecipeCollection) Recipes() []formats.Recipe {
+	out := make([]formats.Recipe, len(rc.recipes))
+	for i, r := range rc.recipes {
 		out[i] = formats.Recipe(r)
 	}
 	return out
