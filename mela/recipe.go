@@ -26,16 +26,22 @@ type Recipe struct {
 	Categories   []string          `json:"categories"`
 	Notes        string            `json:"notes"`
 
-	Images    []utils.B64Image `json:"images"`
-	Yield     PeopleCount      `json:"yield"`
-	PrepTime  MaybeDuration    `json:"prepTime"`
-	CookTime  MaybeDuration    `json:"cookTime"`
-	TotalTime MaybeDuration    `json:"totalTime"`
+	Images []utils.B64Image `json:"images"`
+	Yield  PeopleCount      `json:"yield"`
+
+	PrepTime  formats.MaybeDuration `json:"prepTime"`
+	CookTime  formats.MaybeDuration `json:"cookTime"`
+	TotalTime formats.MaybeDuration `json:"totalTime"`
 }
 
 func (r Recipe) Name() string            { return r.Title }
 func (r Recipe) Format() *formats.Format { return FormatInfo }
-func (r Recipe) Filename() string        { return r.filename + FormatInfo.Extension }
+func (r Recipe) Filename() string {
+	if r.filename == "" {
+		return standardize.StringToFilename(r.Title) + FormatInfo.Extension
+	}
+	return r.filename + FormatInfo.Extension
+}
 
 var ErrInvalidMelaFile = errors.New("given file is neither a melarecipe nor a melarecipes file")
 var ErrInvalidMelaRecipeFile = errors.New("given file is not a melarecipe file")
@@ -45,7 +51,7 @@ var ErrInvalidMelaRecipesFile = errors.New("given file is not a melarecipes file
 var JSONSchema string
 
 // ParseRecipe parses a known single .melarecipe file into a Recipe-compatible struct
-func ParseRecipe(r io.Reader) (*Recipe, error) {
+func ParseRecipeStream(r io.Reader) (*Recipe, error) {
 	var recipe Recipe
 
 	dec := json.NewDecoder(r)
@@ -63,5 +69,5 @@ func sourceName(linkField string) string {
 }
 
 func (r *Recipe) Marshal(w io.Writer) error {
-	return json.NewEncoder(w).Encode(r)
+	return json.NewEncoder(w).Encode(*r)
 }

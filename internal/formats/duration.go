@@ -1,4 +1,4 @@
-package mela
+package formats
 
 import (
 	"strings"

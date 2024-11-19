@@ -30,17 +30,14 @@ type Recipe struct {
 
 func (r Recipe) Name() string            { return r.RecipeName }
 func (r Recipe) Format() *formats.Format { return FormatInfo }
-func (r Recipe) Filename() string        { return r.filename + FormatInfo.Extension }
+func (r Recipe) Filename() string {
+	if r.filename == "" {
+		return standardize.StringToFilename(r.RecipeName) + FormatInfo.Extension
+	}
+	return r.filename + FormatInfo.Extension
+}
 
 type Link string
-
-func (r *Recipe) ensureFilename() {
-	if r.filename != "" {
-		return
-	}
-
-	r.filename = standardize.StringToFilename(r.RecipeName)
-}
 
 func (r *Recipe) Marshal(w io.Writer) error {
 	return json.NewEncoder(w).Encode(r)

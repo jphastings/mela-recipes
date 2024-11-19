@@ -1,10 +1,15 @@
 package mela
 
 import (
+	"fmt"
+
 	"github.com/jphastings/recipes/internal/formats"
+	"github.com/jphastings/recipes/internal/uuid"
+	"github.com/jphastings/recipes/utils"
 )
 
-func importRecipe(r formats.Recipe) (formats.Recipe, error) {
+func ImportRecipe(r formats.Recipe) (formats.Recipe, error) {
+	// If its already in this format then no conversion is needed
 	if _, ok := r.(*Recipe); ok {
 		return r, nil
 	}
@@ -14,20 +19,31 @@ func importRecipe(r formats.Recipe) (formats.Recipe, error) {
 		return nil, err
 	}
 
+	id := ir.ID
+	if id == "" {
+		if newID, err := uuid.NewUUID(ir.Title); err == nil {
+			id = newID.String()
+		}
+	}
+
+	fmt.Println(ir.Photos)
+
 	return &Recipe{
-		filename: r.Filename(),
-		ID:       ir.ID,
+		filename: ir.Filename(),
+		ID:       id,
 		Title:    ir.Title,
-		// TODO: Link
+		// TODO: Link (source)
 		Text:         ir.Description,
 		Ingredients:  ingredientsToSecSeq(ir.Ingredients),
 		Instructions: instructionsToSecSeq(ir.Instructions),
-		// TODO: Images
-		Yield: PeopleCount(ir.Yield),
+		Images:       []utils.B64Image{}, // TODO: Images
 
-		PrepTime:  MaybeDuration(ir.PrepTime.String()),
-		CookTime:  MaybeDuration(ir.CookTime.String()),
-		TotalTime: MaybeDuration(ir.TotalTime.String()),
+		Categories: []string{},
+		Yield:      PeopleCount(ir.Yield),
+
+		PrepTime:  ir.PrepTime,
+		CookTime:  ir.CookTime,
+		TotalTime: ir.TotalTime,
 	}, nil
 }
 
@@ -47,21 +63,4 @@ func instructionsToSecSeq(igs []formats.InstructionGroup) SectionedSequence {
 	}
 
 	return NewSectionedSequence(m)
-}
-
-func importCollection(name string, rs []formats.Recipe) (formats.RecipeCollection, error) {
-	rc := &RecipeCollection{
-		name:    name,
-		recipes: make([]*Recipe, len(rs)),
-	}
-
-	for i, ir := range rs {
-		r, err := importRecipe(ir)
-		if err != nil {
-			return rc, err
-		}
-		rc.recipes[i] = r.(*Recipe)
-	}
-
-	return rc, nil
 }

@@ -1,6 +1,8 @@
 package formats
 
-import "github.com/jphastings/recipes/internal/llm"
+import (
+	"github.com/jphastings/recipes/internal/llm"
+)
 
 // Details about a recipe format
 type Format struct {
@@ -15,17 +17,29 @@ type Format struct {
 	// The file extension for the collection format (with period)
 	ExtensionCollection string
 	// Turns one interchange recipe format into this format
-	New func(Recipe) (Recipe, error)
-	// Turns one or more interchange recipes into this collection format
-	// Will be nil if this is not a collection format
-	NewCollection func(name string, recipes []Recipe) (RecipeCollection, error)
+	Import func(Recipe) (Recipe, error)
+	// Creates a new Collection in this format, ready to add recipes into
+	NewCollection func(CollectionDetails) (CollectionWriter, error)
 	// Parses a filesystem object into either a single Recipe *or* a single RecipeCollection.
-	Parse func(Bundle, ParseOptions) (Recipe, RecipeCollection, error)
+	Parse Parser
 	// Bundle must extract sets of recipe files for this format that *must* be processed together.
 	// Eg. cooklang stores images adjacent to the recipe file:
 	//   lasagne.cook, lasagne.jpg, shakshouka.cook, random.jpg, ignored.crumb
 	//   would result in two bundles, the first with one image the second with none, and two unused files.
 	Bundle Bundler
+}
+
+// A Parser function returns information about the collection that is parsed (if it is a collection that was parsed), and a channel that streams recipes as they are decoded
+type Parser func(Bundle, ParseOptions) (<-chan ParseEvent, *CollectionDetails, error)
+
+// Every parser will return a channel of ParseEvents. Each of which contains progress information and either a recipe or an error
+type ParseEvent struct {
+	Recipe Recipe
+	Err    error
+	// This many have just been parsed
+	I int
+	// The total to parse has changed to this (zero value will be ignored)
+	N int
 }
 
 // An indication of the features a format's implementation can provide

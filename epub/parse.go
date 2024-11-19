@@ -18,13 +18,17 @@ import (
 	"github.com/pirmd/epub"
 )
 
-func Parse(b formats.Bundle, o formats.ParseOptions) (formats.Recipe, formats.RecipeCollection, error) {
+func Parse(b formats.Bundle, o formats.ParseOptions) (<-chan formats.ParseEvent, *formats.CollectionDetails, error) {
 	if o.LLM == nil {
 		return nil, nil, fmt.Errorf("the ePub parser requires an LLM to be configured")
 	}
-
+	if len(b) != 1 {
+		return nil, nil, fmt.Errorf("ePub bundles must contain exactly one ePub filename")
+	}
 	filename := b[0]
-	if path.Ext(filename) != collectionExt {
+
+	ext := path.Ext(filename)
+	if ext != collectionExt {
 		return nil, nil, fmt.Errorf("doesn't appear to be an ePub file")
 	}
 
@@ -33,60 +37,82 @@ func Parse(b formats.Bundle, o formats.ParseOptions) (formats.Recipe, formats.Re
 		return nil, nil, fmt.Errorf("couldn't open ePub: %w", err)
 	}
 
-	rc := &RecipeCollection{
-		filename: filename,
+	cd := &formats.CollectionDetails{
+		Filename: strings.TrimSuffix(filename, ext),
 	}
 
 	// Use the ePub's title, if it's in the standard place
 	if i, err := e.Information(); err == nil {
-		rc.name = i.Title[0]
+		cd.Name = i.Title[0]
 	}
+	pe := make(chan formats.ParseEvent)
+	go func(e *epub.Epub, pe chan<- formats.ParseEvent, llmC *llm.Connection) {
+		defer e.Close()
+		extractRecipes(e, pe, llmC)
+		close(pe)
+	}(e, pe, o.LLM)
 
-	if err := extractRecipes(e, rc, o.LLM); err != nil {
-		return nil, nil, err
-	}
-
-	return nil, rc, nil
+	return pe, cd, err
 }
 
-const extractRecipesPrompt = "The user will provide an HTML fragment that represents one or more cooking recipes. Your job is to convert it into the JSON structured recipe format provided as accurately as possible. You must fill out each section according to the descriptions of the JSON Schema."
+//go:embed extract-recipes.prompt.txt
+var extractRecipesPrompt string
 
-func extractRecipes(e *epub.Epub, rc *RecipeCollection, c *llm.Connection) error {
+func extractRecipes(e *epub.Epub, pe chan<- formats.ParseEvent, c *llm.Connection) {
 	index, err := getIndexFiles(e)
 	if err != nil {
-		return err
+		pe <- formats.ParseEvent{Err: err}
+		return
 	}
 
 	pm, err := getPageRef(e, index)
 	if err != nil {
-		return err
+		pe <- formats.ParseEvent{Err: err}
+		return
 	}
+
+	var n int
+	for _, fragMap := range pm {
+		n += len(fragMap)
+	}
+	pe <- formats.ParseEvent{N: n}
 
 	for filename, fragMap := range pm {
 		f, err := e.OpenItem(filename)
 		if err != nil {
-			return fmt.Errorf("unable to open page within ePub (%s): %w", filename, err)
+			pe <- formats.ParseEvent{
+				Err: fmt.Errorf("unable to open page within ePub (%s): %w", filename, err),
+				I:   len(fragMap),
+			}
+			continue
 		}
 
 		doc, err := html.Parse(f)
 		if err != nil {
-			return fmt.Errorf("unable to read page within ePub (%s): %w", filename, err)
+			pe <- formats.ParseEvent{
+				Err: fmt.Errorf("unable to read page within ePub (%s): %w", filename, err),
+				I:   len(fragMap),
+			}
+			continue
 		}
 
 		fragments := makeRecipeHTMLFragments(doc, fragMap)
-		fragments = fragments[0:1]
 
 		for _, frag := range fragments {
 			var recipes []formats.InterchangeRecipe
 			if err := c.StructuredQuery(extractRecipesPrompt, frag.html, formats.RecipesSchema, &recipes); err != nil {
-				return err
+				pe <- formats.ParseEvent{Err: err, I: 1}
+				continue
 			}
-			rc.recipes = append(rc.recipes, recipes...)
+			for i, r := range recipes {
+				if i > 0 {
+					// If there was more than one recipe in this fragment, then the total increases
+					n++
+				}
+				pe <- formats.ParseEvent{Recipe: r, I: 1, N: n}
+			}
 		}
-		break
 	}
-
-	return nil
 }
 
 var otherIndexMatcher = regexp.MustCompile(`(?i)^(.*index.*)\d+(\.x?html)$`)
@@ -230,7 +256,6 @@ func makeRecipeHTMLFragments(doc *html.Node, fragMap map[string]utils.Pages) []h
 	for frag, pgs := range fragMap {
 		node, err := htmlquery.Query(doc, fmt.Sprintf(fragmentTargetXPath, frag, frag))
 		if err != nil {
-			fmt.Println("Nope on", frag)
 			continue
 		}
 

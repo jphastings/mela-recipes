@@ -3,97 +3,104 @@ package mela
 import (
 	"errors"
 	"fmt"
-	"io"
+	"os"
+	"path"
 	"strings"
 
 	"github.com/jphastings/recipes/internal/formats"
 	"github.com/yeka/zip"
 )
 
-var _ formats.RecipeCollection = (*RecipeCollection)(nil)
+var _ formats.CollectionWriter = (*collectionWriter)(nil)
 
-type RecipeCollection struct {
-	name     string
+type collectionWriter struct {
 	filename string
-	recipes  []*Recipe
+	z        *zip.Writer
+	close    func() error
 }
 
 // ParseRecipe parses a known .melarecipes collection file into a RecipeCollection compatible struct.
-func ParseRecipes(r io.ReaderAt, size int64) (*RecipeCollection, error) {
-	zr, err := zip.NewReader(r, size)
+func ParseRecipesFile(filename string) (<-chan formats.ParseEvent, *formats.CollectionDetails, error) {
+	zr, err := zip.OpenReader(filename)
+	if err != nil {
+		return nil, nil, err
+	}
+	// Don't defer close; it needs to remain open as long as the goroutine is live
+
+	// TODO: Can we grab any book details from the zip?
+	cd := &formats.CollectionDetails{
+		Filename: filename,
+	}
+
+	pe := make(chan formats.ParseEvent, 8)
+	go func(pe chan formats.ParseEvent, zr *zip.ReadCloser) {
+		n := len(zr.File)
+		pe <- formats.ParseEvent{N: n}
+
+		for _, zf := range zr.File {
+			if strings.HasPrefix(path.Base(zf.Name), "._") || !strings.HasSuffix(zf.Name, recipeExt) {
+				pe <- formats.ParseEvent{I: 1}
+				continue
+			}
+
+			rr, err := zf.Open()
+			if err != nil {
+				pe <- formats.ParseEvent{Err: err, I: 1}
+				continue
+			}
+			defer rr.Close()
+
+			r, err := ParseRecipeStream(rr)
+			if err != nil {
+				pe <- formats.ParseEvent{
+					Err: fmt.Errorf("couldn't parse recipe within zip '%s': %w", zf.Name, err),
+					I:   1,
+				}
+			} else {
+				r.filename = withoutExt(zf.Name)
+				pe <- formats.ParseEvent{Recipe: r, I: 1}
+			}
+		}
+		zr.Close()
+		close(pe)
+	}(pe, zr)
+
+	return pe, cd, nil
+}
+
+func NewCollection(cd formats.CollectionDetails) (formats.CollectionWriter, error) {
+	filename := cd.Filename + collectionExt
+	f, err := os.OpenFile(filename, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 644)
 	if err != nil {
 		return nil, err
 	}
-
-	rs := &RecipeCollection{}
-
-	for _, zf := range zr.File {
-		if !strings.HasSuffix(zf.Name, recipeExt) {
-			continue
-		}
-
-		rr, err := zf.Open()
-		if err != nil {
-			return rs, err
-		}
-		defer rr.Close()
-
-		if recipe, err := ParseRecipe(rr); err != nil {
-			return rs, err
-		} else {
-			recipe.filename = withoutExt(zf.Name)
-			rs.recipes = append(rs.recipes, recipe)
-		}
+	z := zip.NewWriter(f)
+	close := func() error {
+		return errors.Join(z.Close(), f.Close())
 	}
 
-	return rs, nil
+	return &collectionWriter{filename: filename, z: z, close: close}, nil
 }
 
-func (rc *RecipeCollection) Filename() string        { return rc.filename + FormatInfo.ExtensionCollection }
-func (rc *RecipeCollection) Format() *formats.Format { return FormatInfo }
+func (cw *collectionWriter) Filename() string { return cw.filename }
 
-func (rc *RecipeCollection) Add(rs ...formats.Recipe) error {
-	for _, ir := range rs {
-		if r, ok := ir.(*Recipe); ok {
-			rc.recipes = append(rc.recipes, r)
-		} else {
-			// TODO: convert
-			return fmt.Errorf("the provided recipe is not of a format that can be stored in a .melarecipes collection")
-		}
+func (cw *collectionWriter) Close() error { return cw.close() }
+
+func (cw *collectionWriter) Add(rr formats.Recipe) error {
+	ir, err := FormatInfo.Import(rr)
+	if err != nil {
+		return err
+	}
+	r := ir.(*Recipe)
+
+	w, err := cw.z.Create(r.Filename())
+	if err != nil {
+		return fmt.Errorf("unable to create recipe file in zip: %w", err)
+	}
+
+	if err := r.Marshal(w); err != nil {
+		return fmt.Errorf("unable to encode recipe JSON into zip: %w", err)
 	}
 
 	return nil
-}
-
-func (rc *RecipeCollection) Recipes() []formats.Recipe {
-	out := make([]formats.Recipe, len(rc.recipes))
-	for i, r := range rc.recipes {
-		out[i] = formats.Recipe(r)
-	}
-	return out
-}
-
-func (rc *RecipeCollection) Marshal(w io.Writer) error {
-	z := zip.NewWriter(w)
-	defer z.Close()
-
-	var errs error
-	for _, recipe := range rc.recipes {
-		w, err := z.Create(recipe.filename + ".melarecipe")
-		if err != nil {
-			errs = errors.Join(errs, fmt.Errorf("unable to create recipe file in zip: %w", err))
-			continue
-		}
-
-		if err := recipe.Marshal(w); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("unable to encode recipe JSON into zip: %w", err))
-		}
-	}
-
-	return errs
-}
-
-func (rc *RecipeCollection) Name() string {
-	// TODO: this needs a fallback
-	return rc.name
 }

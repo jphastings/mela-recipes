@@ -1,8 +1,10 @@
 package recipes
 
 import (
+	"fmt"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/jphastings/recipes/cooklang"
 	"github.com/jphastings/recipes/crouton"
@@ -20,41 +22,87 @@ func AvailableFormats() []*formats.Format {
 	}
 }
 
+type rollupProgress struct {
+	totals map[string]int
+	mu     *sync.Mutex
+}
+
+func newRollupProgress() rollupProgress {
+	return rollupProgress{
+		mu:     &sync.Mutex{},
+		totals: make(map[string]int),
+	}
+}
+
+// Adds the totals together
+func (rp rollupProgress) Add(idx string, thisN int) int {
+	rp.mu.Lock()
+	rp.totals[idx] = thisN
+
+	rollupN := 0
+	for _, t := range rp.totals {
+		rollupN += t
+	}
+
+	rp.mu.Unlock()
+	return rollupN
+}
+
 // Attempts to find a suitable format & parser for all the recipe files given. All found recipes are returned in the first argument, the second argument holds the details of the collection if the input files represent *exactly and only one* collection.
 // If no collections are represented, or the files represent a collection *and* other recipes or collections, then this second return value will be nil.
-func ParseAll(files []string, o formats.ParseOptions) ([]formats.Recipe, formats.RecipeCollection, error) {
-	countCollections := 0
-	var soloCollection formats.RecipeCollection
-	var rs []formats.Recipe
+func ParseAll(files []string, o formats.ParseOptions) (<-chan formats.ParseEvent, *formats.CollectionDetails, error) {
+	moreThanOneCollection := false
+	var cd *formats.CollectionDetails
+	pe := make(chan formats.ParseEvent)
+	rp := newRollupProgress()
+	var wg sync.WaitGroup
 
 	for _, f := range AvailableFormats() {
 		bundles, unused := f.Bundle(files)
 		files = unused
 
-		for _, b := range bundles {
-			r, rc, err := f.Parse(b, o)
+		for ib, b := range bundles {
+			idx := fmt.Sprintf("%s-%d", f.Name, ib)
+
+			bpe, bcd, err := f.Parse(b, o)
 			if err != nil {
 				return nil, nil, err
 			}
 
-			if r != nil {
-				rs = append(rs, r)
-			}
-
-			if rc != nil {
-				countCollections++
-				rs = append(rs, rc.Recipes()...)
-
-				if countCollections == 1 {
-					soloCollection = rc
+			// If only one set of collection details are present then pass on those, otherwise treat all collections as bunch of recipes
+			if bcd != nil && !moreThanOneCollection {
+				if cd != nil {
+					cd = nil
+					moreThanOneCollection = true
 				} else {
-					soloCollection = nil
+					cd = bcd
 				}
 			}
+
+			wg.Add(1)
+			go func(pe chan<- formats.ParseEvent, bpe <-chan formats.ParseEvent, totals rollupProgress, idx string, wg *sync.WaitGroup) {
+				for e := range bpe {
+					n := totals.Add(idx, e.N)
+
+					// Emit with the new rolled-up progress counter
+					pe <- formats.ParseEvent{
+						Recipe: e.Recipe,
+						Err:    e.Err,
+						I:      e.I,
+						N:      n,
+					}
+				}
+				wg.Done()
+			}(pe, bpe, rp, idx, &wg)
 		}
 	}
 
-	return rs, soloCollection, nil
+	go func(wg *sync.WaitGroup) {
+		wg.Wait()
+		close(pe)
+	}(&wg)
+
+	return pe, cd, nil
 }
 
 type AsType string
@@ -68,7 +116,7 @@ const (
 func ParseDestination(to string) (overrideFilename string, asType AsType, format *formats.Format) {
 	ext := path.Ext(to)
 	if ext != "" && ext != to {
-		overrideFilename = to
+		overrideFilename = strings.TrimSuffix(to, ext)
 	}
 
 	for _, f := range AvailableFormats() {

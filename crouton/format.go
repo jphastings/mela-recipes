@@ -16,8 +16,8 @@ var FormatInfo = &formats.Format{
 		WriteRecipe: true,
 	},
 	Extension: recipeExt,
-	New:       importRecipe,
-	Parse: func(formats.Bundle, formats.ParseOptions) (formats.Recipe, formats.RecipeCollection, error) {
+	Import:    importRecipe,
+	Parse: func(formats.Bundle, formats.ParseOptions) (<-chan formats.ParseEvent, *formats.CollectionDetails, error) {
 		return nil, nil, fmt.Errorf("crouton parsing not yet implemented")
 	},
 	Bundle: formats.BundleByExtension(recipeExt),

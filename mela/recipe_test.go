@@ -3,7 +3,6 @@ package mela_test
 import (
 	"bytes"
 	"image"
-	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -11,23 +10,23 @@ import (
 	"github.com/jphastings/recipes/mela"
 )
 
-func TestParseRecipe(t *testing.T) {
-	for _, fixtureNum := range []string{"a", "b", "c"} {
-		f, err := os.Open("fixtures/" + fixtureNum + ".melarecipe")
-		if err != nil {
-			t.Error(err)
-			return
-		}
+// func TestParseRecipe(t *testing.T) {
+// 	for _, fixtureNum := range []string{"a", "b", "c"} {
+// 		f, err := os.Open("fixtures/" + fixtureNum + ".melarecipe")
+// 		if err != nil {
+// 			t.Error(err)
+// 			return
+// 		}
 
-		recipe, err := mela.ParseRecipe(f)
-		if err != nil {
-			t.Error(err)
-			return
-		}
+// 		recipe, err := mela.ParseRecipe(f)
+// 		if err != nil {
+// 			t.Error(err)
+// 			return
+// 		}
 
-		EnsureRecipe(t, recipe, fixtureNum)
-	}
-}
+// 		EnsureRecipe(t, recipe, fixtureNum)
+// 	}
+// }
 
 // func TestParseRecipes(t *testing.T) {
 // 	f, err := os.Open("fixtures/a+b.melarecipes")

@@ -1,0 +1,2 @@
+- [ ] Current epub parsing means parallel LLMing results in 5 1/103 (1.0%) messages at the same time.
+- [ ] Add `SourceFilename()` to `formats.Recipe` so I can always report on where the recipe has come from?

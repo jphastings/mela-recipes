@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/jphastings/recipes"
 	"github.com/jphastings/recipes/internal/formats"
-	"github.com/jphastings/recipes/internal/standardize"
 	"github.com/spf13/cobra"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 // convertCmd represents the convert command
@@ -22,43 +22,29 @@ var convertCmd = &cobra.Command{
 			return err
 		}
 
-		rs, rc, err := recipes.ParseAll(args, o)
-		if err != nil {
-			return err
-		}
-
 		to, err := cmd.Flags().GetString("to")
 		if err != nil {
 			return err
 		}
 		filename, asType, destFormat := recipes.ParseDestination(to)
 
-		makeCollection := asType == recipes.AsTypeCollection || asType == recipes.AsTypeAny && rc != nil
-		if makeCollection {
-			rcName := "Recipes"
-			if rc != nil {
-				rcName = rc.Name()
-			}
-
-			out, err := destFormat.NewCollection(rcName, rc.Recipes())
-			if err != nil {
-				return fmt.Errorf("unable to create a new collection in the %s format: %w", destFormat.Name, err)
-			}
-
-			if filename == "" {
-				filename = standardize.StringToFilename(rcName) + destFormat.ExtensionCollection
-			}
-
-			f, err := os.Create(filename)
-			if err != nil {
-				return fmt.Errorf("unable to make output recipe collection: %w", err)
-			}
-
-			return out.Marshal(f)
+		pe, cd, err := recipes.ParseAll(args, o)
+		if err != nil {
+			return err
 		}
 
-		fmt.Println(len(rs), rc)
-		return fmt.Errorf("convert command not yet implemented")
+		collectionRequested := asType == recipes.AsTypeCollection || asType == recipes.AsTypeAny && cd != nil
+		if collectionRequested {
+			if cd == nil {
+				cd = &formats.CollectionDetails{}
+			}
+			if filename != "" {
+				cd.Filename = filename
+			}
+			return makeCollection(cd, destFormat, pe)
+		} else {
+			return makeRecipes(filename, destFormat, pe)
+		}
 	},
 }
 
@@ -94,4 +80,37 @@ func longExplain() string {
 	}
 
 	return str
+}
+
+func makeCollection(cd *formats.CollectionDetails, destFormat *formats.Format, pe <-chan formats.ParseEvent) error {
+	out, err := destFormat.NewCollection(*cd)
+	if err != nil {
+		return fmt.Errorf("unable to create a new collection in the %s format: %w", destFormat.Name, err)
+	}
+	defer out.Close()
+
+	bar := progressbar.NewOptions(-1, progressbar.OptionFullWidth())
+
+	for e := range pe {
+		if e.N != 0 {
+			bar.ChangeMax(e.N)
+		}
+		bar.Add(e.I)
+
+		if e.Err != nil {
+			progressbar.Bprintf(bar, "⛔️ Couldn't parse: %v\n", e.Err)
+		} else if e.Recipe != nil {
+			progressbar.Bprintf(bar, "📖 Found \"%s\"…\n", e.Recipe.Name())
+			if err := out.Add(e.Recipe); err != nil {
+				progressbar.Bprintf(bar, "  ⛔️ Writing error: %v\n", e.Err)
+			}
+			progressbar.Bprintf(bar, "  📥 …added into %s\n\n", out.Filename())
+		}
+	}
+
+	return bar.Finish()
+}
+
+func makeRecipes(filename string, destFormat *formats.Format, pe <-chan formats.ParseEvent) error {
+	return fmt.Errorf("single recipe output not yet implemented")
 }
