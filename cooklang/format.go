@@ -1,7 +1,6 @@
 package cooklang
 
 import (
-	"fmt"
 	"path"
 	"regexp"
 	"slices"
@@ -21,10 +20,8 @@ var FormatInfo = &formats.Format{
 		ParseRecipe: true,
 	},
 	Extension: recipeExt,
-	Parse: func(formats.Bundle, formats.ParseOptions) (<-chan formats.ParseEvent, *formats.CollectionDetails, error) {
-		return nil, nil, fmt.Errorf("cooklang parsing not yet implemented")
-	},
-	Bundle: bundle,
+	Parse:     Parse,
+	Bundle:    bundle,
 }
 
 var bundleExts = []string{recipeExt, ".jpg", ".jpeg", ".png"}

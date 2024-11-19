@@ -1,2 +1,3 @@
 - [ ] Current epub parsing means parallel LLMing results in 5 1/103 (1.0%) messages at the same time.
 - [ ] Add `SourceFilename()` to `formats.Recipe` so I can always report on where the recipe has come from?
+- [ ] LLM output with LMStudio is _extremely_ poor — I think the complexity of the JSON Schema is making it hard for the LLM to produce useful output. I may have to break the output out into chunks (eg. request the title, then request the description etc.) or use the LLM to determine suitable XPath, and process them manually from there.

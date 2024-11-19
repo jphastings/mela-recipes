@@ -1,8 +1,6 @@
 package mela
 
 import (
-	"fmt"
-
 	"github.com/jphastings/recipes/internal/formats"
 	"github.com/jphastings/recipes/internal/uuid"
 	"github.com/jphastings/recipes/utils"
@@ -26,10 +24,8 @@ func ImportRecipe(r formats.Recipe) (formats.Recipe, error) {
 		}
 	}
 
-	fmt.Println(ir.Photos)
-
 	return &Recipe{
-		filename: ir.Filename(),
+		filename: r.Filename(),
 		ID:       id,
 		Title:    ir.Title,
 		// TODO: Link (source)

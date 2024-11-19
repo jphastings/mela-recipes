@@ -102,7 +102,7 @@ func makeCollection(cd *formats.CollectionDetails, destFormat *formats.Format, p
 		} else if e.Recipe != nil {
 			progressbar.Bprintf(bar, "📖 Found \"%s\"…\n", e.Recipe.Name())
 			if err := out.Add(e.Recipe); err != nil {
-				progressbar.Bprintf(bar, "  ⛔️ Writing error: %v\n", e.Err)
+				progressbar.Bprintf(bar, "  ⛔️ Writing error: %v\n", err)
 			}
 			progressbar.Bprintf(bar, "  📥 …added into %s\n\n", out.Filename())
 		}
