@@ -70,7 +70,14 @@ func ParseRecipesFile(filename string) (<-chan formats.ParseEvent, *formats.Coll
 
 func NewCollection(cd formats.CollectionDetails) (formats.CollectionWriter, error) {
 	filename := cd.Filename + collectionExt
-	f, err := os.OpenFile(filename, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 644)
+	flags := os.O_CREATE
+	if cd.OverwriteExisting {
+		flags |= os.O_TRUNC | os.O_RDWR
+	} else {
+		flags |= os.O_EXCL | os.O_WRONLY
+	}
+
+	f, err := os.OpenFile(filename, flags, 0644)
 	if err != nil {
 		return nil, err
 	}

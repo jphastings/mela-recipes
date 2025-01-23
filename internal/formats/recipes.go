@@ -11,9 +11,10 @@ import (
 var RecipesSchema llm.RawJSON
 
 type CollectionDetails struct {
-	Name     string
-	Filename string
-	Book     utils.Book
+	Name              string
+	Filename          string
+	Book              utils.Book
+	OverwriteExisting bool
 }
 
 // Represents a writer for a recipe collection in any format

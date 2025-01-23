@@ -1,0 +1,1 @@
+List the method of the recipe, as shown, one step per line. If the method is split into sections, label the section with a heading starting with a "#". DO NOT INVENT SECTION HEADINGS. NO BULLET POINTS OR NUMBERS.

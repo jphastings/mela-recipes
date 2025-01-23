@@ -1,14 +1,17 @@
 package epub
 
 import (
-	_ "embed"
+	"errors"
 	"fmt"
+	"io/fs"
 	"path"
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
+	"github.com/jphastings/recipes/epub/prompts"
 	"github.com/jphastings/recipes/internal/formats"
 	"github.com/jphastings/recipes/internal/llm"
 	"github.com/jphastings/recipes/utils"
@@ -55,9 +58,6 @@ func Parse(b formats.Bundle, o formats.ParseOptions) (<-chan formats.ParseEvent,
 	return pe, cd, err
 }
 
-//go:embed extract-recipes.prompt.txt
-var extractRecipesPrompt string
-
 func extractRecipes(e *epub.Epub, pe chan<- formats.ParseEvent, c *llm.Connection) {
 	index, err := getIndexFiles(e)
 	if err != nil {
@@ -99,20 +99,121 @@ func extractRecipes(e *epub.Epub, pe chan<- formats.ParseEvent, c *llm.Connectio
 		fragments := makeRecipeHTMLFragments(doc, fragMap)
 
 		for _, frag := range fragments {
-			var recipes []formats.InterchangeRecipe
-			if err := c.StructuredQuery(extractRecipesPrompt, frag.html, formats.RecipesSchema, &recipes); err != nil {
+			// TODO: Handle more than one recipe in a fragment?
+			if recipe, err := extractRecipeFromFragment(c, frag.html, e.OpenItem); err == nil {
+				pe <- formats.ParseEvent{Recipe: recipe, I: 1}
+			} else if err != llm.ErrWasIgnored {
 				pe <- formats.ParseEvent{Err: err, I: 1}
-				continue
-			}
-			for i, r := range recipes {
-				if i > 0 {
-					// If there was more than one recipe in this fragment, then the total increases
-					n++
-				}
-				pe <- formats.ParseEvent{Recipe: r, I: 1, N: n}
 			}
 		}
 	}
+}
+
+func extractRecipeFromFragment(c *llm.Connection, html string, openFile func(string) (fs.File, error)) (formats.Recipe, error) {
+	answers, err := c.MultiQuery(prompts.System, prompts.Ignore, html, prompts.Map)
+	if err != nil {
+		return nil, err
+	}
+
+	r := formats.InterchangeRecipe{}
+
+	var errs error
+	for ans := range answers {
+		if ans.Err != nil {
+			errs = errors.Join(errs, ans.Err)
+			continue
+		}
+
+		// LLMs are surprisingly dumb at returning no response.
+		if ans.Answer == "NULL" {
+			ans.Answer = ""
+		}
+
+		switch ans.Key {
+		case "title":
+			r.Title = ans.Answer
+		case "description":
+			r.Description = ans.Answer
+		case "notes":
+			r.Notes = ans.Answer
+
+		case "ingredients":
+			r.Ingredients = titledLists(ans.Answer)
+		case "instructions":
+			r.Instructions = titledLists(ans.Answer)
+
+		case "cooktime":
+			if dur, err := formats.MaybeDuration(ans.Answer).Parse(); err != nil {
+				r.CookTime = dur
+			}
+		case "preptime":
+			if dur, err := formats.MaybeDuration(ans.Answer).Parse(); err != nil {
+				r.PrepTime = dur
+			}
+		case "totaltime":
+			if dur, err := formats.MaybeDuration(ans.Answer).Parse(); err != nil {
+				r.TotalTime = dur
+			}
+
+		case "images":
+			for _, fname := range lines(ans.Answer) {
+				if file, err := openFile(fname); err != nil {
+					r.Images = append(r.Images, file)
+				}
+			}
+
+		case "yield":
+			if yield, err := strconv.Atoi(ans.Answer); err != nil && yield != 0 {
+				r.Yield = strconv.Itoa(yield)
+			}
+
+		default:
+			panic(fmt.Sprintf("%s not handled", ans.Key))
+		}
+	}
+
+	if vErrs := r.Validate(); len(vErrs) > 0 {
+		return nil, errors.Join(fmt.Errorf("not a valid recipe"), errors.Join(vErrs...), errs)
+	}
+
+	return r, nil
+}
+
+func lines(in string) []string {
+	all := strings.Split(in, "\n")
+	for i, line := range all {
+		all[i] = strings.TrimSpace(line)
+	}
+	return all
+}
+
+func titledLists(in string) []formats.TitledList {
+	var lists []formats.TitledList
+
+	list := formats.TitledList{}
+	for _, line := range lines(in) {
+		if line == "" {
+			continue
+		}
+
+		if !strings.HasPrefix(line, "#") {
+			list.List = append(list.List, strings.Trim(line, "-*• :"))
+			continue
+		}
+
+		if len(list.List) > 0 {
+			lists = append(lists, list)
+		}
+		list = formats.TitledList{
+			Title: strings.TrimSpace(line[1:]),
+		}
+	}
+
+	if len(list.List) > 0 {
+		lists = append(lists, list)
+	}
+
+	return lists
 }
 
 var otherIndexMatcher = regexp.MustCompile(`(?i)^(.*index.*)\d+(\.x?html)$`)

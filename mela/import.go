@@ -1,12 +1,19 @@
 package mela
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/jphastings/recipes/internal/formats"
 	"github.com/jphastings/recipes/internal/uuid"
 	"github.com/jphastings/recipes/utils"
 )
 
 func ImportRecipe(r formats.Recipe) (formats.Recipe, error) {
+	if r == nil {
+		return nil, fmt.Errorf("provided recipe is nil")
+	}
+
 	// If its already in this format then no conversion is needed
 	if _, ok := r.(*Recipe); ok {
 		return r, nil
@@ -30,32 +37,33 @@ func ImportRecipe(r formats.Recipe) (formats.Recipe, error) {
 		Title:    ir.Title,
 		// TODO: Link (source)
 		Text:         ir.Description,
-		Ingredients:  ingredientsToSecSeq(ir.Ingredients),
-		Instructions: instructionsToSecSeq(ir.Instructions),
+		Ingredients:  titledListsToSecSeq(ir.Ingredients),
+		Instructions: titledListsToSecSeq(ir.Instructions),
 		Images:       []utils.B64Image{}, // TODO: Images
 
 		Categories: []string{},
 		Yield:      PeopleCount(ir.Yield),
 
-		PrepTime:  ir.PrepTime,
-		CookTime:  ir.CookTime,
-		TotalTime: ir.TotalTime,
+		PrepTime:  formatDuration(ir.PrepTime),
+		CookTime:  formatDuration(ir.CookTime),
+		TotalTime: formatDuration(ir.TotalTime),
 	}, nil
 }
 
-func ingredientsToSecSeq(igs []formats.IngredientGroup) SectionedSequence {
-	m := make(map[string][]string)
-	for _, ig := range igs {
-		m[ig.GroupName] = ig.Ingredients
+func formatDuration(dur *time.Duration) formats.MaybeDuration {
+	if dur == nil {
+		return ""
 	}
 
-	return NewSectionedSequence(m)
+	hours := int(dur.Hours())
+	mins := int(dur.Minutes())
+	return formats.MaybeDuration(fmt.Sprintf("%dh%dm", hours, mins))
 }
 
-func instructionsToSecSeq(igs []formats.InstructionGroup) SectionedSequence {
+func titledListsToSecSeq(tls []formats.TitledList) SectionedSequence {
 	m := make(map[string][]string)
-	for _, ig := range igs {
-		m[ig.GroupName] = ig.Steps
+	for _, tl := range tls {
+		m[tl.Title] = tl.List
 	}
 
 	return NewSectionedSequence(m)

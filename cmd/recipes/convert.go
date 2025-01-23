@@ -6,9 +6,8 @@ import (
 
 	"github.com/jphastings/recipes"
 	"github.com/jphastings/recipes/internal/formats"
-	"github.com/spf13/cobra"
-
 	"github.com/schollz/progressbar/v3"
+	"github.com/spf13/cobra"
 )
 
 // convertCmd represents the convert command
@@ -33,6 +32,11 @@ var convertCmd = &cobra.Command{
 			return err
 		}
 
+		overwrite, err := cmd.Flags().GetBool("overwrite")
+		if err != nil {
+			return err
+		}
+
 		collectionRequested := asType == recipes.AsTypeCollection || asType == recipes.AsTypeAny && cd != nil
 		if collectionRequested {
 			if cd == nil {
@@ -41,9 +45,10 @@ var convertCmd = &cobra.Command{
 			if filename != "" {
 				cd.Filename = filename
 			}
+			cd.OverwriteExisting = overwrite
 			return makeCollection(cd, destFormat, pe)
 		} else {
-			return makeRecipes(filename, destFormat, pe)
+			return makeRecipes(filename, destFormat, pe, overwrite)
 		}
 	},
 }
@@ -111,6 +116,6 @@ func makeCollection(cd *formats.CollectionDetails, destFormat *formats.Format, p
 	return bar.Finish()
 }
 
-func makeRecipes(filename string, destFormat *formats.Format, pe <-chan formats.ParseEvent) error {
+func makeRecipes(filename string, destFormat *formats.Format, pe <-chan formats.ParseEvent, overwrite bool) error {
 	return fmt.Errorf("single recipe output not yet implemented")
 }

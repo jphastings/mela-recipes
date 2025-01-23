@@ -1,0 +1,1 @@
+This is a recipe in HTML. You will help extract certain pieces of information from it in plain, unformatted text (no bullets, no HTML, etc). Reply with the information from the recipe ONLY. Be as accurate to the original text as you can. Answer only. Do not include explanations or additional context. If there is no valid answer then respond with "NULL".

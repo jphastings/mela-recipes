@@ -3,6 +3,8 @@ package formats
 import (
 	"fmt"
 	"io"
+	"io/fs"
+	"time"
 
 	"github.com/jphastings/recipes/internal/standardize"
 )
@@ -33,30 +35,24 @@ var _ Recipe = (*InterchangeRecipe)(nil)
 // ⚠️ This struct is highly likely to change subtly with each new recipe format added to this library.
 type InterchangeRecipe struct {
 	filename     string
-	ID           string             `json:"-"`
-	Title        string             `json:"title"`
-	Description  string             `json:"description"`
-	Yield        string             `json:"yield"`
-	Ingredients  []IngredientGroup  `json:"ingredients"`
-	Instructions []InstructionGroup `json:"instructions"`
+	ID           string
+	Title        string
+	Description  string
+	Yield        string
+	Ingredients  []TitledList
+	Instructions []TitledList
+	Notes        string
 
-	// TODO: This is epub specific, probably worth pulling this out?
-	Photos []string `json:"photos"`
+	Images []fs.File
 
-	// TODO: Handle these
-	PrepTime  MaybeDuration `json:"prepTime"`
-	CookTime  MaybeDuration `json:"cookTime"`
-	TotalTime MaybeDuration `json:"totalTime"`
+	PrepTime  *time.Duration
+	CookTime  *time.Duration
+	TotalTime *time.Duration
 }
 
-type IngredientGroup struct {
-	GroupName   string   `json:"groupName"`
-	Ingredients []string `json:"ingredients"`
-}
-
-type InstructionGroup struct {
-	GroupName string   `json:"groupName"`
-	Steps     []string `json:"steps"`
+type TitledList struct {
+	Title string
+	List  []string
 }
 
 func (ir InterchangeRecipe) Filename() string                   { return ir.filename }
@@ -69,4 +65,22 @@ func (ir InterchangeRecipe) Standardize() ([]standardize.Std, error) {
 
 func (ir InterchangeRecipe) Marshal(io.Writer) error {
 	return fmt.Errorf("writing a recipe in the interchange format is not supported")
+}
+
+func (r InterchangeRecipe) Validate() []error {
+	var errs []error
+
+	if r.Title == "" {
+		errs = append(errs, fmt.Errorf("recipe has no title"))
+	}
+
+	if len(r.Ingredients) == 0 {
+		errs = append(errs, fmt.Errorf("recipe has no ingredients"))
+	}
+
+	if len(r.Instructions) == 0 {
+		errs = append(errs, fmt.Errorf("recipe has no instructions"))
+	}
+
+	return errs
 }

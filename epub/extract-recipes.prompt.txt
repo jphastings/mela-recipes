@@ -1,1 +1,0 @@
-The user will provide an HTML fragment that represents one or more cooking recipes. Your job is to convert it into the JSON structured recipe format provided as accurately as possible. You must fill out each section according to the descriptions of the JSON Schema.

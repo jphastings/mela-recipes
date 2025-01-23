@@ -31,4 +31,6 @@ func init() {
 	rootCmd.PersistentFlags().Bool("out-there", true, "Output files in the same directory as the source data")
 	rootCmd.PersistentFlags().String("out-dir", "", "Output files to the given directory")
 	rootCmd.MarkFlagsMutuallyExclusive("out-here", "out-there", "out-dir")
+
+	rootCmd.PersistentFlags().Bool("overwrite", false, "Overwrite any files that already exist")
 }
