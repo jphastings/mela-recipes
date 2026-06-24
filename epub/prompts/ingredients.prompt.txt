@@ -1,1 +1,0 @@
-List the ingredients and their amounts, as shown, one per line. If there are sections to the ingredient list, label the section with a heading starting with a "#". NO BULLET POINTS OR NUMBERS.

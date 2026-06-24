@@ -113,9 +113,6 @@ func makeCollection(cd *formats.CollectionDetails, destFormat *formats.Format, p
 				progressbar.Bprintf(bar, "  ⛔️ Writing error: %v\n", err)
 			}
 			i++
-			if i >= 10 {
-				return nil
-			}
 			progressbar.Bprintf(bar, "  📥 …added into %s\n\n", out.Filename())
 		}
 	}

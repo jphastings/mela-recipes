@@ -1,387 +1,293 @@
 package epub
 
 import (
-	"errors"
+	"bytes"
 	"fmt"
-	"io/fs"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
+	"io"
 	"path"
 	"regexp"
-	"slices"
 	"sort"
-	"strconv"
 	"strings"
 
-	"github.com/jphastings/recipes/epub/prompts"
+	"github.com/jphastings/recipes/epub/induce"
 	"github.com/jphastings/recipes/internal/formats"
-	"github.com/jphastings/recipes/internal/llm"
 	"github.com/jphastings/recipes/utils"
-	"golang.org/x/net/html"
-
-	"github.com/antchfx/htmlquery"
 	"github.com/pirmd/epub"
 )
 
-func Parse(b formats.Bundle, o formats.ParseOptions) (<-chan formats.ParseEvent, *formats.CollectionDetails, error) {
-	if o.LLM == nil {
-		return nil, nil, fmt.Errorf("the ePub parser requires an LLM to be configured")
+const (
+	minPhotoDim = 300 // below this on either side it's an icon/ornament, not a recipe photo
+	maxPhotos   = 3   // attach at most this many photos per recipe
+)
+
+// photoFilter decides whether an image is a recipe photo. The byte-size floor is
+// learned from the book itself: flat diagrams and logos compress far smaller than
+// photographs, so a fraction of the typical photo's size cleanly separates them.
+type photoFilter struct {
+	minBytes int
+	minDim   int
+}
+
+func isImageItem(mediaType, href string) bool {
+	if strings.HasPrefix(mediaType, "image/") {
+		return true
 	}
+	l := strings.ToLower(href)
+	return strings.HasSuffix(l, ".jpg") || strings.HasSuffix(l, ".jpeg") || strings.HasSuffix(l, ".png")
+}
+
+// buildPhotoFilter scans every image once (header + stored size only) to learn
+// the book's typical photo size, then sets the floor to a quarter of it.
+func buildPhotoFilter(e *epub.Epub) photoFilter {
+	filt := photoFilter{minDim: minPhotoDim}
+	pkg, err := e.Package()
+	if err != nil {
+		return filt
+	}
+	var sizes []int
+	for _, it := range pkg.Manifest.Items {
+		if !isImageItem(it.MediaType, it.Href) {
+			continue
+		}
+		f, err := e.OpenItem(it.Href)
+		if err != nil {
+			continue
+		}
+		var size int
+		if fi, err := f.Stat(); err == nil {
+			size = int(fi.Size())
+		}
+		cfg, format, derr := image.DecodeConfig(f)
+		f.Close()
+		if derr != nil || (format != "jpeg" && format != "png") {
+			continue
+		}
+		if size > 0 && cfg.Width >= minPhotoDim && cfg.Height >= minPhotoDim {
+			sizes = append(sizes, size)
+		}
+	}
+	if len(sizes) >= 4 {
+		sort.Ints(sizes)
+		upper := sizes[len(sizes)/2:] // larger half ≈ the photographs
+		typical := upper[len(upper)/2]
+		filt.minBytes = typical / 4
+	}
+	return filt
+}
+
+// Parse turns an ePub cookbook into a stream of recipes. It induces the book's
+// own recipe layout (no per-book configuration, no LLM) and extracts every
+// recipe verbatim, so the result is exactly what is printed in the book.
+func Parse(b formats.Bundle, o formats.ParseOptions) (<-chan formats.ParseEvent, *formats.CollectionDetails, error) {
 	if len(b) != 1 {
 		return nil, nil, fmt.Errorf("ePub bundles must contain exactly one ePub filename")
 	}
 	filename := b[0]
-
-	ext := path.Ext(filename)
-	if ext != collectionExt {
+	if path.Ext(filename) != collectionExt {
 		return nil, nil, fmt.Errorf("doesn't appear to be an ePub file")
 	}
 
-	e, err := epub.Open(filename)
+	e, err := openEpub(filename)
 	if err != nil {
 		return nil, nil, fmt.Errorf("couldn't open ePub: %w", err)
 	}
 
 	cd := &formats.CollectionDetails{
-		Filename: strings.TrimSuffix(filename, ext),
+		Filename: strings.TrimSuffix(filename, collectionExt),
 	}
-
 	// Use the ePub's title, if it's in the standard place
-	if i, err := e.Information(); err == nil {
+	if i, err := e.Information(); err == nil && len(i.Title) > 0 {
 		cd.Name = i.Title[0]
 	}
+
 	pe := make(chan formats.ParseEvent)
-	go func(e *epub.Epub, pe chan<- formats.ParseEvent, llmC *llm.Connection) {
+	go func() {
 		defer e.Close()
-		extractRecipes(e, pe, llmC)
-		close(pe)
-	}(e, pe, o.LLM)
+		defer close(pe)
+		extractRecipes(e, pe)
+	}()
 
-	return pe, cd, err
+	return pe, cd, nil
 }
 
-func extractRecipes(e *epub.Epub, pe chan<- formats.ParseEvent, c *llm.Connection) {
-	index, err := getIndexFiles(e)
+// openEpub wraps epub.Open, which panics on some malformed archives instead of
+// returning an error.
+func openEpub(filename string) (e *epub.Epub, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e, err = nil, fmt.Errorf("malformed or unsupported ePub archive (%v)", r)
+		}
+	}()
+	return epub.Open(filename)
+}
+
+func extractRecipes(e *epub.Epub, pe chan<- formats.ParseEvent) {
+	docs, err := loadDocuments(e)
 	if err != nil {
 		pe <- formats.ParseEvent{Err: err}
 		return
 	}
 
-	pm, err := getPageRef(e, index)
+	profile, err := induce.Induce(docs, bookIdent(e))
 	if err != nil {
-		pe <- formats.ParseEvent{Err: err}
+		pe <- formats.ParseEvent{Err: fmt.Errorf("couldn't determine the book's recipe layout: %w", err)}
 		return
 	}
 
-	var n int
-	for _, fragMap := range pm {
-		n += len(fragMap)
-	}
-	pe <- formats.ParseEvent{N: n}
+	report := profile.Extract(docs)
+	pe <- formats.ParseEvent{N: len(report.Recipes)}
+	filt := buildPhotoFilter(e)
 
-	for filename, fragMap := range pm {
-		f, err := e.OpenItem(filename)
-		if err != nil {
+	for _, r := range report.Recipes {
+		// Flagged recipes failed the verbatim/structure gate; surface rather than ship.
+		if !r.OK() {
 			pe <- formats.ParseEvent{
-				Err: fmt.Errorf("unable to open page within ePub (%s): %w", filename, err),
-				I:   len(fragMap),
+				Err: fmt.Errorf("skipping %q: %s", r.Title, strings.Join(r.Issues, "; ")),
+				I:   1,
 			}
 			continue
 		}
-
-		doc, err := html.Parse(f)
-		if err != nil {
-			pe <- formats.ParseEvent{
-				Err: fmt.Errorf("unable to read page within ePub (%s): %w", filename, err),
-				I:   len(fragMap),
-			}
-			continue
-		}
-
-		fragments := makeRecipeHTMLFragments(doc, fragMap)
-
-		for _, frag := range fragments {
-			// TODO: Handle more than one recipe in a fragment?
-			if recipe, err := extractRecipeFromFragment(c, frag.html, e.OpenItem); err == nil {
-				pe <- formats.ParseEvent{Recipe: recipe, I: 1}
-			} else if err != llm.ErrWasIgnored {
-				pe <- formats.ParseEvent{Err: err, I: 1}
-			}
-		}
+		pe <- formats.ParseEvent{Recipe: toInterchange(r, e, filt), I: 1}
 	}
 }
 
-func extractRecipeFromFragment(c *llm.Connection, html string, openFile func(string) (fs.File, error)) (formats.Recipe, error) {
-	answers, err := c.MultiQuery(prompts.System, prompts.Ignore, html, prompts.Map)
-	if err != nil {
-		return nil, err
-	}
-
-	r := formats.InterchangeRecipe{}
-
-	var errs error
-	for ans := range answers {
-		if ans.Err != nil {
-			errs = errors.Join(errs, ans.Err)
-			continue
-		}
-
-		// LLMs are surprisingly dumb at returning no response.
-		if ans.Answer == "NULL" {
-			ans.Answer = ""
-		}
-
-		switch ans.Key {
-		case "title":
-			r.Title = ans.Answer
-		case "description":
-			r.Description = ans.Answer
-		case "notes":
-			r.Notes = ans.Answer
-
-		case "ingredients":
-			r.Ingredients = titledLists(ans.Answer)
-		case "instructions":
-			r.Instructions = titledLists(ans.Answer)
-
-		case "cooktime":
-			if dur, err := formats.MaybeDuration(ans.Answer).Parse(); err != nil {
-				r.CookTime = dur
-			}
-		case "preptime":
-			if dur, err := formats.MaybeDuration(ans.Answer).Parse(); err != nil {
-				r.PrepTime = dur
-			}
-		case "totaltime":
-			if dur, err := formats.MaybeDuration(ans.Answer).Parse(); err != nil {
-				r.TotalTime = dur
-			}
-
-		case "images":
-			for _, fname := range lines(ans.Answer) {
-				if file, err := openFile(fname); err != nil {
-					r.Images = append(r.Images, file)
-				}
-			}
-
-		case "yield":
-			if yield, err := strconv.Atoi(ans.Answer); err != nil && yield != 0 {
-				r.Yield = strconv.Itoa(yield)
-			}
-
-		default:
-			panic(fmt.Sprintf("%s not handled", ans.Key))
-		}
-	}
-
-	if vErrs := r.Validate(); len(vErrs) > 0 {
-		return nil, errors.Join(fmt.Errorf("not a valid recipe"), errors.Join(vErrs...), errs)
-	}
-
-	return r, nil
-}
-
-func lines(in string) []string {
-	all := strings.Split(in, "\n")
-	for i, line := range all {
-		all[i] = strings.TrimSpace(line)
-	}
-	return all
-}
-
-func titledLists(in string) []formats.TitledList {
-	var lists []formats.TitledList
-
-	list := formats.TitledList{}
-	for _, line := range lines(in) {
-		if line == "" {
-			continue
-		}
-
-		if !strings.HasPrefix(line, "#") {
-			list.List = append(list.List, strings.Trim(line, "-*• :"))
-			continue
-		}
-
-		if len(list.List) > 0 {
-			lists = append(lists, list)
-		}
-		list = formats.TitledList{
-			Title: strings.TrimSpace(line[1:]),
-		}
-	}
-
-	if len(list.List) > 0 {
-		lists = append(lists, list)
-	}
-
-	return lists
-}
-
-var otherIndexMatcher = regexp.MustCompile(`(?i)^(.*index.*)\d+(\.x?html)$`)
-
-// Finds the "index" page of the ePub (ie. what a human would use to look up what recipe is on what page)
-// Must guess if the recipe is spread across multiple HTML pages and, in that case, assumes that each of them has the same filename prefix and a numeric suffix
-func getIndexFiles(e *epub.Epub) ([]string, error) {
+// loadDocuments reads every content (X)HTML document from the ePub, skipping
+// obvious front/back-matter so it doesn't pollute structure discovery.
+func loadDocuments(e *epub.Epub) ([]induce.Document, error) {
 	pkg, err := e.Package()
 	if err != nil {
 		return nil, fmt.Errorf("couldn't open ePub package file: %w", err)
 	}
 
-	var tocFile string
+	var docs []induce.Document
 	for _, item := range pkg.Manifest.Items {
-		if item.MediaType == "application/x-dtbncx+xml" {
-			tocFile = item.Href
-			break
+		if !isContent(item.MediaType, item.Href) || skipped(item.Href) {
+			continue
 		}
-	}
-	if tocFile == "" {
-		return nil, fmt.Errorf("no table of contents listed in the ePub package")
-	}
-
-	f, err := e.OpenItem(tocFile)
-	if err != nil {
-		return nil, fmt.Errorf("unable to open the table of contents file")
-	}
-
-	ncx, err := parseNCX(f)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't read ePub's table of contents: %w", err)
-	}
-
-	var indexFiles []string
-	var checkForOthers []string
-
-	for _, p := range ncx.NavMap.NavPoints {
-		text := strings.TrimSpace(strings.ToLower(p.Label.Text))
-		if text == "index" {
-			indexFiles = append(indexFiles, p.Content.Src)
-			checkForOthers = otherIndexMatcher.FindStringSubmatch(p.Content.Src)
-			break
-		}
-	}
-
-	if checkForOthers == nil {
-		return indexFiles, nil
-	}
-
-	otherMatcher, err := regexp.Compile(fmt.Sprintf(
-		`^%s\d+%s$`,
-		regexp.QuoteMeta(checkForOthers[1]),
-		regexp.QuoteMeta(checkForOthers[2]),
-	))
-	if err != nil {
-		return indexFiles, nil
-	}
-
-	for _, item := range pkg.Manifest.Items {
-		if item.Href != checkForOthers[0] && otherMatcher.MatchString(item.Href) {
-			indexFiles = append(indexFiles, item.Href)
-		}
-	}
-
-	return indexFiles, nil
-}
-
-// index filename -> HTML id -> page number
-type realPageMap map[string]map[string]utils.Pages
-
-// Creates a map of the real page number of every reference to one in the provided index pages (likely a recipe), as well as the HTML fragment that it points to
-func getPageRef(e *epub.Epub, indexFiles []string) (realPageMap, error) {
-	pm := make(realPageMap)
-	for _, idx := range indexFiles {
-		f, err := e.OpenItem(idx)
-		if err != nil {
-			return nil, fmt.Errorf("unable to open Index (%s): %w", idx, err)
-		}
-
-		doc, err := htmlquery.Parse(f)
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse HTML in index: %w", err)
-		}
-
-		links, err := htmlquery.QueryAll(doc, "//a[text()]")
-		if err != nil {
-			return nil, fmt.Errorf("unable to find page references in the index: %w", err)
-		}
-
-		for _, link := range links {
-			destParts := strings.Split(getHrefAttribute(link), "#")
-			// Ignore links that don't have a fragment
-			if len(destParts) != 2 {
-				continue
-			}
-			// Ignore links to the index
-			destPath := path.Join(path.Dir(idx), destParts[0])
-			if slices.Contains(indexFiles, destPath) {
-				continue
-			}
-			text := htmlquery.InnerText(link)
-			pages, err := utils.ParsePages(text)
-			if err != nil {
-				continue
-			}
-
-			if _, ok := pm[destPath]; !ok {
-				pm[destPath] = make(map[string]utils.Pages)
-			}
-			pm[destPath][destParts[1]] = pages
-		}
-	}
-
-	return pm, nil
-}
-
-// Pulls the href attribute value from an HTML node
-func getHrefAttribute(node *html.Node) string {
-	if node.Type == html.ElementNode {
-		for _, attr := range node.Attr {
-			if attr.Key == "href" {
-				return attr.Val
-			}
-		}
-	}
-	return ""
-}
-
-const fragmentTargetXPath = "//*[@id = '%s' or (local-name() = 'a' and @name = '%s')]"
-
-type htmlFragmentWithPages struct {
-	html  string
-	pages utils.Pages
-}
-
-func makeRecipeHTMLFragments(doc *html.Node, fragMap map[string]utils.Pages) []htmlFragmentWithPages {
-	var splitIndices []int
-	idxMap := make(map[int]utils.Pages)
-	docStr := htmlquery.OutputHTML(doc, true)
-
-	for frag, pgs := range fragMap {
-		node, err := htmlquery.Query(doc, fmt.Sprintf(fragmentTargetXPath, frag, frag))
+		f, err := e.OpenItem(item.Href)
 		if err != nil {
 			continue
 		}
-
-		idx := strings.Index(docStr, htmlquery.OutputHTML(node, true))
-		idxMap[idx] = pgs
-
-		splitIndices = append(splitIndices, idx)
+		data, err := io.ReadAll(f)
+		if err != nil {
+			continue
+		}
+		doc, err := induce.ParseDocument(item.Href, bytes.NewReader(data))
+		if err != nil {
+			continue
+		}
+		docs = append(docs, doc)
 	}
+	if len(docs) == 0 {
+		return nil, fmt.Errorf("no readable content documents found in the ePub")
+	}
+	return docs, nil
+}
 
-	sort.Ints(splitIndices)
+var skipName = []string{
+	"nav", "toc", "cover", "copyright", "title", "index", "contents",
+	"about", "ack", "dedicat", "glossary", "frontmatter", "fm", "bm", "half",
+}
 
-	fragments := make([]htmlFragmentWithPages, len(splitIndices))
-	for i, idx := range splitIndices {
-		if i == len(splitIndices)-1 {
-			fragments[i] = htmlFragmentWithPages{
-				html:  docStr[idx:],
-				pages: idxMap[idx],
-			}
+func isContent(mediaType, href string) bool {
+	if mediaType == "application/xhtml+xml" {
+		return true
+	}
+	l := strings.ToLower(href)
+	return strings.HasSuffix(l, ".xhtml") || strings.HasSuffix(l, ".html") || strings.HasSuffix(l, ".htm")
+}
+
+func skipped(href string) bool {
+	base := strings.ToLower(path.Base(href))
+	for _, p := range skipName {
+		if strings.HasPrefix(base, p) {
+			return true
+		}
+	}
+	return false
+}
+
+var digits = regexp.MustCompile(`\d`)
+
+func bookIdent(e *epub.Epub) induce.BookIdent {
+	id := induce.BookIdent{}
+	info, err := e.Information()
+	if err != nil {
+		return id
+	}
+	if len(info.Title) > 0 {
+		id.Title = info.Title[0]
+	}
+	for _, ident := range info.Identifier {
+		d := strings.Join(digits.FindAllString(ident.Value, -1), "")
+		if len(d) == 13 || len(d) == 10 {
+			id.ISBN = d
+			break
+		}
+	}
+	return id
+}
+
+func toInterchange(r induce.Recipe, e *epub.Epub, filt photoFilter) formats.Recipe {
+	ir := formats.NewInterchangeRecipe()
+	ir.Title = r.Title
+	ir.Yield = r.Yield
+
+	desc := r.Description
+	if r.Subtitle != "" {
+		if desc != "" {
+			desc = r.Subtitle + "\n\n" + desc
 		} else {
-			fragments[i] = htmlFragmentWithPages{
-				html:  docStr[idx:splitIndices[i+1]],
-				pages: idxMap[idx],
+			desc = r.Subtitle
+		}
+	}
+	ir.Description = desc
+
+	for _, s := range r.Ingredients {
+		ir.Ingredients = append(ir.Ingredients, formats.TitledList{Title: s.Title, List: s.Items})
+	}
+	for _, s := range r.Steps {
+		ir.Instructions = append(ir.Instructions, formats.TitledList{Title: s.Title, List: s.Items})
+	}
+	ir.Tags = append(ir.Tags, r.Categories...)
+
+	for _, p := range r.Images {
+		if img, ok := loadPhoto(e, p, filt); ok {
+			ir.Images = append(ir.Images, img)
+			if len(ir.Images) >= maxPhotos {
+				break
 			}
 		}
 	}
 
-	return fragments
+	return ir
+}
+
+// loadPhoto opens a candidate image and keeps it only if it's a real photo — a
+// raster at least minDim on each side and at least the book's learned byte-size
+// floor — filtering out icons, the "v" glyph, chapter ornaments and diagrams.
+func loadPhoto(e *epub.Epub, itemPath string, filt photoFilter) (utils.B64Image, bool) {
+	f, err := e.OpenItem(itemPath)
+	if err != nil {
+		return nil, false
+	}
+	data, err := io.ReadAll(f)
+	if err != nil || len(data) < filt.minBytes {
+		return nil, false
+	}
+	cfg, format, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil || (format != "jpeg" && format != "png") {
+		return nil, false
+	}
+	if cfg.Width < filt.minDim || cfg.Height < filt.minDim {
+		return nil, false
+	}
+	img := utils.B64Image(data)
+	if opt, changed, err := img.Optimize(); err == nil && changed {
+		img = opt
+	}
+	return img, true
 }

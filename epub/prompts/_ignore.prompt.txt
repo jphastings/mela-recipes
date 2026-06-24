@@ -1,1 +1,0 @@
-Does this HTML blob describe a cooking recipe? (yes/no)
