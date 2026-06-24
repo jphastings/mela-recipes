@@ -40,7 +40,7 @@ func ImportRecipe(r formats.Recipe) (formats.Recipe, error) {
 		Instructions: titledListsToSecSeq(ir.Instructions),
 		Images:       ir.Images,
 
-		Categories: []string{},
+		Categories: importTags(ir.Tags),
 		Yield:      PeopleCount(ir.Yield),
 
 		PrepTime:  formatDuration(ir.PrepTime),
@@ -49,6 +49,15 @@ func ImportRecipe(r formats.Recipe) (formats.Recipe, error) {
 	}
 
 	return mr, nil
+}
+
+// importTags carries the interchange recipe's tags across as Mela categories,
+// always returning a non-nil slice.
+func importTags(tags []string) []string {
+	if tags == nil {
+		return []string{}
+	}
+	return tags
 }
 
 func formatDuration(dur *time.Duration) formats.MaybeDuration {
