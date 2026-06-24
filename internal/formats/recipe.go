@@ -3,10 +3,10 @@ package formats
 import (
 	"fmt"
 	"io"
-	"io/fs"
 	"time"
 
 	"github.com/jphastings/recipes/internal/standardize"
+	"github.com/jphastings/recipes/utils"
 )
 
 // Represents a recipe in a specific format, held in memory
@@ -43,11 +43,20 @@ type InterchangeRecipe struct {
 	Instructions []TitledList
 	Notes        string
 
-	Images []fs.File
+	Images []utils.B64Image
 
 	PrepTime  *time.Duration
 	CookTime  *time.Duration
 	TotalTime *time.Duration
+
+	Tags []string
+}
+
+func NewInterchangeRecipe() InterchangeRecipe {
+	return InterchangeRecipe{
+		Images: []utils.B64Image{},
+		Tags:   []string{},
+	}
 }
 
 type TitledList struct {

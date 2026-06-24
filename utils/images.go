@@ -2,9 +2,12 @@ package utils
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
+	"io"
+	"io/fs"
 
 	_ "golang.org/x/image/webp"
 
@@ -12,6 +15,18 @@ import (
 
 	"github.com/gen2brain/jpegli"
 )
+
+func FromFile(f fs.File) (B64Image, error) {
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) == 0 {
+		return nil, fmt.Errorf("empty image file")
+	}
+
+	return data, nil
+}
 
 type B64Image []byte
 

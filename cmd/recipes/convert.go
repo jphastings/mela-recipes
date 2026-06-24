@@ -96,6 +96,7 @@ func makeCollection(cd *formats.CollectionDetails, destFormat *formats.Format, p
 
 	bar := progressbar.NewOptions(-1, progressbar.OptionFullWidth())
 
+	i := 0
 	for e := range pe {
 		if e.N != 0 {
 			bar.ChangeMax(e.N)
@@ -106,8 +107,14 @@ func makeCollection(cd *formats.CollectionDetails, destFormat *formats.Format, p
 			progressbar.Bprintf(bar, "⛔️ Couldn't parse: %v\n", e.Err)
 		} else if e.Recipe != nil {
 			progressbar.Bprintf(bar, "📖 Found \"%s\"…\n", e.Recipe.Name())
+			_, _ = e.Recipe.Standardize()
+
 			if err := out.Add(e.Recipe); err != nil {
 				progressbar.Bprintf(bar, "  ⛔️ Writing error: %v\n", err)
+			}
+			i++
+			if i >= 10 {
+				return nil
 			}
 			progressbar.Bprintf(bar, "  📥 …added into %s\n\n", out.Filename())
 		}

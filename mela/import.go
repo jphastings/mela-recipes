@@ -6,7 +6,6 @@ import (
 
 	"github.com/jphastings/recipes/internal/formats"
 	"github.com/jphastings/recipes/internal/uuid"
-	"github.com/jphastings/recipes/utils"
 )
 
 func ImportRecipe(r formats.Recipe) (formats.Recipe, error) {
@@ -31,7 +30,7 @@ func ImportRecipe(r formats.Recipe) (formats.Recipe, error) {
 		}
 	}
 
-	return &Recipe{
+	mr := &Recipe{
 		filename: r.Filename(),
 		ID:       id,
 		Title:    ir.Title,
@@ -39,7 +38,7 @@ func ImportRecipe(r formats.Recipe) (formats.Recipe, error) {
 		Text:         ir.Description,
 		Ingredients:  titledListsToSecSeq(ir.Ingredients),
 		Instructions: titledListsToSecSeq(ir.Instructions),
-		Images:       []utils.B64Image{}, // TODO: Images
+		Images:       ir.Images,
 
 		Categories: []string{},
 		Yield:      PeopleCount(ir.Yield),
@@ -47,7 +46,9 @@ func ImportRecipe(r formats.Recipe) (formats.Recipe, error) {
 		PrepTime:  formatDuration(ir.PrepTime),
 		CookTime:  formatDuration(ir.CookTime),
 		TotalTime: formatDuration(ir.TotalTime),
-	}, nil
+	}
+
+	return mr, nil
 }
 
 func formatDuration(dur *time.Duration) formats.MaybeDuration {
