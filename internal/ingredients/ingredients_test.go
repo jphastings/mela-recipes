@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/jphastings/recipes/crouton/ingredients"
+	"github.com/jphastings/recipes/internal/ingredients"
 	"github.com/stretchr/testify/assert"
 )
 

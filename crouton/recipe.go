@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/jphastings/recipes/crouton/ingredients"
 	"github.com/jphastings/recipes/internal/formats"
+	"github.com/jphastings/recipes/internal/ingredients"
 	"github.com/jphastings/recipes/internal/standardize"
 	"github.com/jphastings/recipes/internal/uuid"
 )

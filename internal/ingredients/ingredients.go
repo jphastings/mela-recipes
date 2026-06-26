@@ -36,6 +36,19 @@ func (a *Amount) MarshalJSON() ([]byte, error) {
 	return json.Marshal(f)
 }
 
+func (a *Amount) UnmarshalJSON(data []byte) error {
+	var f float64
+	if err := json.Unmarshal(data, &f); err != nil {
+		return err
+	}
+	r := new(big.Rat).SetFloat64(f)
+	if r == nil {
+		return fmt.Errorf("cannot represent %v as a rational amount", f)
+	}
+	*a = Amount(*r)
+	return nil
+}
+
 var (
 	UnitItem  Unit = "ITEM"
 	UnitPinch Unit = "PINCH"
@@ -81,6 +94,23 @@ func NewSection(name string, order int) (IngredientUse, error) {
 		Quantity:   Quantity{Type: SectionMarker},
 		Ingredient: Ingredient{Name: name, UUID: uuid1},
 		UUID:       uuid2,
+	}, nil
+}
+
+// NewItem builds a plain, unit-less ingredient of quantity 1 named after the whole
+// line. It is the fallback for ingredient text that ExtractIngredient cannot parse.
+func NewItem(name string, order int) (IngredientUse, error) {
+	iuUUID, err1 := uuid.NewUUID("")
+	ingUUID, err2 := uuid.NewUUID(name)
+	if err1 != nil || err2 != nil {
+		return IngredientUse{}, errors.Join(err1, err2)
+	}
+
+	return IngredientUse{
+		Order:      order,
+		UUID:       iuUUID,
+		Quantity:   Quantity{Amount: (*Amount)(big.NewRat(1, 1)), Type: UnitItem},
+		Ingredient: Ingredient{Name: name, UUID: ingUUID},
 	}, nil
 }
 

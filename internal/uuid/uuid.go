@@ -3,8 +3,10 @@ package uuid
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 type UUID [16]byte
@@ -36,6 +38,34 @@ func NewUUID(in string) (UUID, error) {
 	u[8] &= 0x3f
 	u[8] |= 0x80
 	return u, nil
+}
+
+// Parse parses the canonical 8-4-4-4-12 hex form of a UUID. Unlike NewUUID it
+// does not re-stamp the version/variant bits, so Parse(u.String()) == u for any
+// UUID u produced by this package.
+func Parse(s string) (UUID, error) {
+	var u UUID
+	hexStr := strings.ReplaceAll(s, "-", "")
+	if len(hexStr) != 32 {
+		return u, fmt.Errorf("invalid UUID %q", s)
+	}
+	if _, err := hex.Decode(u[:], []byte(hexStr)); err != nil {
+		return u, fmt.Errorf("invalid UUID %q: %w", s, err)
+	}
+	return u, nil
+}
+
+func (uuid *UUID) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	parsed, err := Parse(s)
+	if err != nil {
+		return err
+	}
+	*uuid = parsed
+	return nil
 }
 
 func (uuid UUID) String() string {

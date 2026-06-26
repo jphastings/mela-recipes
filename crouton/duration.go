@@ -17,7 +17,6 @@ func (m *Minutes) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	asM := Minutes(time.Duration(int64(mins * float64(time.Minute.Nanoseconds()))))
-	m = &asM
+	*m = Minutes(time.Duration(int64(mins * float64(time.Minute.Nanoseconds()))))
 	return nil
 }

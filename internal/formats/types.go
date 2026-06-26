@@ -12,6 +12,8 @@ type Format struct {
 	URL string
 	// What features this format provider has
 	Features Features
+	// What this format cannot preserve when converting to or from the interchange format
+	Lossiness Lossiness
 	// The file extension for the recipe format (with period)
 	Extension string
 	// The file extension for the collection format (with period)

@@ -42,6 +42,7 @@ type InterchangeRecipe struct {
 	Ingredients  []TitledList
 	Instructions []TitledList
 	Notes        string
+	Source       Source
 
 	Images []utils.B64Image
 
@@ -62,6 +63,13 @@ func NewInterchangeRecipe() InterchangeRecipe {
 type TitledList struct {
 	Title string
 	List  []string
+}
+
+// Source describes where a recipe came from. URI may be a web address
+// (https://…) or a URN such as urn:isbn:9781234567890.
+type Source struct {
+	Name string
+	URI  string
 }
 
 func (ir InterchangeRecipe) Filename() string                   { return ir.filename }
