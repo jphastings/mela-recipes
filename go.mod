@@ -6,7 +6,6 @@ require (
 	github.com/SadPencil/go-lagrange-interpolation v0.0.0-20230827182818-6ce53f3fde88
 	github.com/antchfx/htmlquery v1.3.6
 	github.com/gen2brain/jpegli v0.4.1
-	github.com/justintout/cooklang-go v0.1.3
 	github.com/knights-analytics/hugot v0.7.5
 	github.com/pirmd/epub v0.3.1
 	github.com/schollz/progressbar/v3 v3.19.0
@@ -17,6 +16,7 @@ require (
 	golang.org/x/image v0.43.0
 	golang.org/x/net v0.56.0
 	golang.org/x/text v0.38.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -59,6 +59,5 @@ require (
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/term v0.44.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 )
