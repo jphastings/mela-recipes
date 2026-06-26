@@ -6,7 +6,6 @@ require (
 	github.com/antchfx/htmlquery v1.3.3
 	github.com/gen2brain/jpegli v0.2.2
 	github.com/justintout/cooklang-go v0.1.1
-	github.com/k3a/html2text v1.4.0
 	github.com/knights-analytics/hugot v0.7.5
 	github.com/pirmd/epub v0.3.0
 	github.com/schollz/progressbar/v3 v3.19.0
