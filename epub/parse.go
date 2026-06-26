@@ -98,7 +98,7 @@ func buildPhotoFilter(e *epub.Epub) photoFilter {
 		if fi, err := f.Stat(); err == nil {
 			size = int(fi.Size())
 		}
-		cfg, format, derr := image.DecodeConfig(f)
+		cfg, format, derr := safeDecodeConfig(f)
 		f.Close()
 		if derr != nil || (format != "jpeg" && format != "png") {
 			continue
@@ -145,6 +145,13 @@ func Parse(b formats.Bundle, o formats.ParseOptions) (<-chan formats.ParseEvent,
 	go func() {
 		defer e.Close()
 		defer close(pe)
+		// Backstop: a codec (eg. jpegli) trap surfaces as a panic. Turn any that
+		// escape the per-image guards into an error rather than crashing the CLI.
+		defer func() {
+			if r := recover(); r != nil {
+				pe <- formats.ParseEvent{Err: fmt.Errorf("ePub extraction failed unexpectedly: %v", r)}
+			}
+		}()
 		extractRecipes(e, pe)
 	}()
 
@@ -160,6 +167,65 @@ func openEpub(filename string) (e *epub.Epub, err error) {
 		}
 	}()
 	return epub.Open(filename)
+}
+
+var (
+	devNull     *os.File
+	devNullOnce sync.Once
+	stderrMu    sync.Mutex
+)
+
+// withQuietStderr runs fn with os.Stderr pointed at the null device. The jpegli
+// decoder writes chatty C-level diagnostics ("Skipped 1 bytes before marker…")
+// straight to stderr on malformed images, with no API to disable them; this keeps
+// that noise away from end users. The window is just the synchronous decode call,
+// during which nothing else writes to stderr.
+func withQuietStderr(fn func()) {
+	devNullOnce.Do(func() {
+		devNull, _ = os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	})
+	if devNull == nil {
+		fn()
+		return
+	}
+
+	stderrMu.Lock()
+	saved := os.Stderr
+	os.Stderr = devNull
+	defer func() {
+		os.Stderr = saved
+		stderrMu.Unlock()
+	}()
+	fn()
+}
+
+// safeDecodeConfig is image.DecodeConfig hardened against the panics that the
+// WASM-backed jpegli decoder raises (rather than returning an error) on malformed
+// images, so the caller can simply skip an undecodable image. Decoder chatter is
+// suppressed.
+func safeDecodeConfig(r io.Reader) (cfg image.Config, format string, err error) {
+	withQuietStderr(func() {
+		defer func() {
+			if rec := recover(); rec != nil {
+				err = fmt.Errorf("image decoder panicked: %v", rec)
+			}
+		}()
+		cfg, format, err = image.DecodeConfig(r)
+	})
+	return
+}
+
+// safeOptimize runs B64Image.Optimize, returning the image unchanged if the
+// optimiser errors or panics (eg. jpegli tripping over a malformed image).
+func safeOptimize(img utils.B64Image) utils.B64Image {
+	out := img
+	withQuietStderr(func() {
+		defer func() { _ = recover() }()
+		if opt, changed, err := img.Optimize(); err == nil && changed {
+			out = opt
+		}
+	})
+	return out
 }
 
 func extractRecipes(e *epub.Epub, pe chan<- formats.ParseEvent) {
@@ -316,16 +382,12 @@ func loadPhoto(e *epub.Epub, itemPath string, filt photoFilter) (utils.B64Image,
 	if err != nil || len(data) < filt.minBytes {
 		return nil, false
 	}
-	cfg, format, err := image.DecodeConfig(bytes.NewReader(data))
+	cfg, format, err := safeDecodeConfig(bytes.NewReader(data))
 	if err != nil || (format != "jpeg" && format != "png") {
 		return nil, false
 	}
 	if cfg.Width < filt.minDim || cfg.Height < filt.minDim {
 		return nil, false
 	}
-	img := utils.B64Image(data)
-	if opt, changed, err := img.Optimize(); err == nil && changed {
-		img = opt
-	}
-	return img, true
+	return safeOptimize(utils.B64Image(data)), true
 }
