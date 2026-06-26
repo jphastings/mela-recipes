@@ -2,21 +2,59 @@ package epub
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/jphastings/recipes/epub/induce"
+	"github.com/jphastings/recipes/epub/induce/modellabel"
 	"github.com/jphastings/recipes/internal/formats"
 	"github.com/jphastings/recipes/utils"
 	"github.com/pirmd/epub"
 )
+
+// modelRefiner is a process-wide, lazily-loaded model labeller. The embedding
+// model is loaded only the first time a book can't be certified structurally,
+// so self-certifying books pay nothing, and a load failure (e.g. offline)
+// degrades to structural-only extraction.
+var modelRefiner = &lazyLabeler{}
+
+type lazyLabeler struct {
+	once sync.Once
+	lab  induce.Labeler
+}
+
+func (z *lazyLabeler) Label(units []induce.Unit, unit induce.UnitSpec) map[induce.Role]induce.FieldSpec {
+	z.once.Do(func() {
+		if l, err := modellabel.New(context.Background(), modelCacheDir()); err == nil {
+			z.lab = l
+		}
+	})
+	if z.lab == nil {
+		return map[induce.Role]induce.FieldSpec{}
+	}
+	return z.lab.Label(units, unit)
+}
+
+func modelCacheDir() string {
+	if d := os.Getenv("RECIPES_MODEL_DIR"); d != "" {
+		return d
+	}
+	if d, err := os.UserCacheDir(); err == nil {
+		return filepath.Join(d, "recipes", "models")
+	}
+	return "./models"
+}
 
 const (
 	minPhotoDim = 300 // below this on either side it's an icon/ornament, not a recipe photo
@@ -131,7 +169,7 @@ func extractRecipes(e *epub.Epub, pe chan<- formats.ParseEvent) {
 		return
 	}
 
-	profile, err := induce.Induce(docs, bookIdent(e))
+	profile, err := induce.InduceWith(docs, bookIdent(e), modelRefiner)
 	if err != nil {
 		pe <- formats.ParseEvent{Err: fmt.Errorf("couldn't determine the book's recipe layout: %w", err)}
 		return

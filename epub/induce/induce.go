@@ -398,50 +398,84 @@ func detectMarkers(units []Unit, fields map[Role]FieldSpec) []MarkerRule {
 	return out
 }
 
-// Induce discovers a book's recipe structure with no per-book configuration.
-// It picks the delimiter whose induced labelling yields the most cleanly-
-// extracted (gate-passing) recipes.
-func Induce(docs []Document, book BookIdent) (*Profile, error) {
-	type best struct {
-		unit   UnitSpec
-		fields map[Role]FieldSpec
-		conf   Confidence
-		score  int
+type candResult struct {
+	unit   UnitSpec
+	fields map[Role]FieldSpec
+	conf   Confidence
+	score  int
+	by     string
+}
+
+// evaluate labels a candidate delimiter with one labeller and scores it by how
+// many of its recipes extract cleanly.
+func evaluate(docs []Document, unit UnitSpec, by string, lab Labeler) *candResult {
+	wf := filter(segment(docs, unit), wellFormed)
+	if len(wf) < minUnitCount {
+		return nil
 	}
-	var b *best
-	for _, cand := range candidates(docs) {
-		unit := UnitSpec{Mode: modeFor(cand), Sel: cand}
-		wf := filter(segment(docs, unit), wellFormed)
-		if len(wf) < minUnitCount {
-			continue
-		}
-		fields := defaultLabeler.Label(wf, unit)
-		pass := gatePassRate(unit, fields, wf)
-		score := int(pass * float64(len(wf)))
-		conf := Confidence{
-			PerField: fieldCoverage(wf, fields),
-			Overall:  pass,
-			NRecipes: len(wf),
-		}
-		// Prefer the labelling that extracts the most clean recipes; on ties
-		// (e.g. every candidate fails) prefer the one finding more recipes, so
-		// a flagged book still reports against its real recipe unit.
-		if b == nil || score > b.score || (score == b.score && len(wf) > b.conf.NRecipes) {
-			b = &best{unit, fields, conf, score}
-		}
+	fields := lab.Label(wf, unit)
+	pass := gatePassRate(unit, fields, wf)
+	return &candResult{
+		unit:   unit,
+		fields: fields,
+		conf:   Confidence{PerField: fieldCoverage(wf, fields), Overall: pass, NRecipes: len(wf)},
+		score:  int(pass * float64(len(wf))),
+		by:     by,
+	}
+}
+
+func betterThan(a, b *candResult) bool {
+	if a == nil {
+		return false
 	}
 	if b == nil {
+		return true
+	}
+	return a.score > b.score || (a.score == b.score && a.conf.NRecipes > b.conf.NRecipes)
+}
+
+// pickBest tries every candidate delimiter with the given labeller and returns
+// the best-scoring result.
+func pickBest(docs []Document, by string, lab Labeler) *candResult {
+	var best *candResult
+	for _, cand := range candidates(docs) {
+		unit := UnitSpec{Mode: modeFor(cand), Sel: cand}
+		if r := evaluate(docs, unit, by, lab); betterThan(r, best) {
+			best = r
+		}
+	}
+	return best
+}
+
+// Induce discovers a book's recipe structure with no per-book configuration,
+// using only the structural labeller.
+func Induce(docs []Document, book BookIdent) (*Profile, error) {
+	return InduceWith(docs, book, nil)
+}
+
+// InduceWith is like Induce but, when the structural labelling doesn't reach the
+// accept threshold (role-blind classes, prose, non-English layouts), refines it
+// with a model-backed labeller. The model is consulted only for books structure
+// can't certify, so self-certifying books pay nothing and can't regress.
+func InduceWith(docs []Document, book BookIdent, refiner Labeler) (*Profile, error) {
+	best := pickBest(docs, "structural", defaultLabeler)
+	if refiner != nil && (best == nil || best.conf.Overall < AcceptThreshold) {
+		if m := pickBest(docs, "model", refiner); betterThan(m, best) {
+			best = m
+		}
+	}
+	if best == nil {
 		return nil, errors.New("no repeating recipe unit discovered")
 	}
-	markers := detectMarkers(filter(segment(docs, b.unit), wellFormed), b.fields)
+	markers := detectMarkers(filter(segment(docs, best.unit), wellFormed), best.fields)
 	return &Profile{
 		SchemaVer:  1,
 		Book:       book,
-		Unit:       b.unit,
-		Fields:     b.fields,
+		Unit:       best.unit,
+		Fields:     best.fields,
 		Markers:    markers,
-		Confidence: b.conf,
-		InducedBy:  "structural",
+		Confidence: best.conf,
+		InducedBy:  best.by,
 	}, nil
 }
 
