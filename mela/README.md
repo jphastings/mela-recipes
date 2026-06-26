@@ -134,6 +134,8 @@ The pages referenced should be listed in the order they appear in the book. For 
 
 For recipe bundles created from physical books it can be useful to protect the bundle so that only people who are able to demonstrate they own a copy of that physical book are able to access the recipes within.
 
+This mechanism is implemented generically in the root [`protected`](../protected) package, which can protect _any_ recipe type (the questions are generated from each recipe's interchange representation), not only Mela recipes. When Mela recipes are protected the result is the `.protectedrecipes` file described here.
+
 Files protected like this are identical to `.melarecipes` zip files, except that they use the extension `.protectedrecipes`, all contained `.melarecipe` files are password protected with standard AES256 zip encryption, and also contain the unencrypted `_decrypting.txt` as the first entry, which contains the questions that need to be answered and details needed to derive the decryption password.
 
 The `_decrypting.txt` file contains three sections (each line `\n` delimited):
@@ -169,7 +171,7 @@ Look at the second recipe shown on page 14. What is the recipe's title (includin
 Look at the first recipe shown on page 105. How many steps does this recipe have?
 Look at the first recipe shown on page 123. In the recipe's instructions, what is the last word of the last step?
 Look at the first recipe shown on page 66. In the recipe's description, what is the last word of the first sentence?
-# Above are questions that allow the derivation of the password for the other files in this archive, below is additional machine information needed for the same. Please see https://github.com/jphastings/recipes#proof-of-ownership-extension for specifics.
+# Above are questions that allow the derivation of the password for the other files in this archive, below is additional machine information needed for the same. Please see https://github.com/jphastings/recipes/tree/main/protected for specifics.
 S7yj6S74aoH+OHe13fSZyA
 a5D0f5T4cNy6WsVHs9YXGw
 F2rQyKGBPZiV58T8JYIq0Q

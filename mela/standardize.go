@@ -101,7 +101,7 @@ func bookFromNotes(r *Recipe) (bool, error) {
 			return false, err
 		}
 
-		newNotes += fmt.Sprintf(", %s", ordinal(recipeNumber, false))
+		newNotes += fmt.Sprintf(", %s", utils.Ordinal(recipeNumber, false))
 	}
 
 	newNotes += "_"
@@ -112,31 +112,4 @@ func bookFromNotes(r *Recipe) (bool, error) {
 	r.Notes = newNotes
 
 	return true, nil
-}
-
-func ordinal(n uint64, useWords bool) string {
-	if useWords {
-		switch n {
-		case 1:
-			return "first"
-		case 2:
-			return "second"
-		case 3:
-			return "third"
-		}
-	}
-
-	if (n%100)/10 == 1 {
-		return fmt.Sprintf("%dth", n)
-	}
-	switch n % 10 {
-	case 1:
-		return fmt.Sprintf("%dst", n)
-	case 2:
-		return fmt.Sprintf("%dnd", n)
-	case 3:
-		return fmt.Sprintf("%drd", n)
-	default:
-		return fmt.Sprintf("%dth", n)
-	}
 }

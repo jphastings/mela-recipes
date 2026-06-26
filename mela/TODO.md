@@ -2,10 +2,11 @@
 
 ## Major features
 
-- [ ] .protectedrecipes files
+- [~] .protectedrecipes files (implemented generically in the root `protected` package)
   - [x] Document purpose & format
-  - [~] Create archive
-  - [ ] Parse archive
+  - [x] Create archive
+  - [x] Parse archive
+  - [ ] Wire `.protectedrecipes` into the format registry & CLI (interactive ownership prompts)
   - [ ] Examples
 
 ## Improvements
