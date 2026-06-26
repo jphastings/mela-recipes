@@ -1,9 +1,5 @@
 package formats
 
-import (
-	"github.com/jphastings/recipes/internal/llm"
-)
-
 // Details about a recipe format
 type Format struct {
 	// A human friendly (eg. capitalised) name for the format
@@ -65,5 +61,9 @@ func (f Format) Extensions() []string {
 }
 
 type ParseOptions struct {
-	LLM *llm.Connection
+	// AskOwnership answers a single proof-of-ownership question when reading a
+	// protected archive. If nil, protected archives cannot be read.
+	AskOwnership func(question string) (answer string, err error)
+	// ExplainOwnership is called once before the first ownership question.
+	ExplainOwnership func(questionCount, failCount int)
 }

@@ -17,6 +17,7 @@ import (
 func AvailableFormats() []*formats.Format {
 	return []*formats.Format{
 		mela.FormatInfo,
+		mela.ProtectedFormatInfo,
 		crouton.FormatInfo,
 		paprika.FormatInfo,
 		epub.FormatInfo,

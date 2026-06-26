@@ -16,10 +16,7 @@ var convertCmd = &cobra.Command{
 	Short: "Convert recipes between different formats",
 	Long:  longExplain(),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		o, err := formats.LoadOptions()
-		if err != nil {
-			return err
-		}
+		o := withOwnershipPrompts(formats.ParseOptions{})
 
 		to, err := cmd.Flags().GetString("to")
 		if err != nil {
@@ -92,7 +89,6 @@ func makeCollection(cd *formats.CollectionDetails, destFormat *formats.Format, p
 	if err != nil {
 		return fmt.Errorf("unable to create a new collection in the %s format: %w", destFormat.Name, err)
 	}
-	defer out.Close()
 
 	bar := progressbar.NewOptions(-1, progressbar.OptionFullWidth())
 
@@ -115,6 +111,13 @@ func makeCollection(cd *formats.CollectionDetails, destFormat *formats.Format, p
 			i++
 			progressbar.Bprintf(bar, "  📥 …added into %s\n\n", out.Filename())
 		}
+	}
+
+	// Close finalises the collection — for protected output this is where question
+	// generation and encryption happen, so its error must surface (it's otherwise
+	// the only signal of, eg., too few recipes to protect).
+	if cerr := out.Close(); cerr != nil {
+		return fmt.Errorf("unable to finish the %s collection: %w", destFormat.Name, cerr)
 	}
 
 	return bar.Finish()

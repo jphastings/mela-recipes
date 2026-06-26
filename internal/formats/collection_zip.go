@@ -97,10 +97,10 @@ type zipCollectionWriter struct {
 	close    func() error
 }
 
-// NewZipCollection opens a new zip-backed recipe collection. Recipes added to it
-// are first converted with importFn, then written via their own Marshal, so the
-// per-format container encoding (eg. gzip) lives entirely in the recipe type.
-func NewZipCollection(cd CollectionDetails, collectionExt string, importFn func(Recipe) (Recipe, error)) (CollectionWriter, error) {
+// OpenCollectionFile creates the output file for a collection, named
+// cd.Filename + collectionExt and honoring cd.OverwriteExisting. It returns the
+// open file along with its full name.
+func OpenCollectionFile(cd CollectionDetails, collectionExt string) (*os.File, string, error) {
 	filename := cd.Filename + collectionExt
 	flags := os.O_CREATE
 	if cd.OverwriteExisting {
@@ -110,6 +110,17 @@ func NewZipCollection(cd CollectionDetails, collectionExt string, importFn func(
 	}
 
 	f, err := os.OpenFile(filename, flags, 0644)
+	if err != nil {
+		return nil, "", err
+	}
+	return f, filename, nil
+}
+
+// NewZipCollection opens a new zip-backed recipe collection. Recipes added to it
+// are first converted with importFn, then written via their own Marshal, so the
+// per-format container encoding (eg. gzip) lives entirely in the recipe type.
+func NewZipCollection(cd CollectionDetails, collectionExt string, importFn func(Recipe) (Recipe, error)) (CollectionWriter, error) {
+	f, filename, err := OpenCollectionFile(cd, collectionExt)
 	if err != nil {
 		return nil, err
 	}

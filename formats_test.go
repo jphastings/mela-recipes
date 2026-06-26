@@ -25,6 +25,9 @@ func TestParseDestination(t *testing.T) {
 		{"something.melarecipe", "something", AsTypeRecipe, mela.FormatInfo},
 		{"another.melarecipes", "another", AsTypeCollection, mela.FormatInfo},
 
+		{".protectedrecipes", "", AsTypeCollection, mela.ProtectedFormatInfo},
+		{"book.protectedrecipes", "book", AsTypeCollection, mela.ProtectedFormatInfo},
+
 		{"Crouton", "", AsTypeAny, crouton.FormatInfo},
 		{"crouton", "", AsTypeAny, crouton.FormatInfo},
 		{".crumb", "", AsTypeRecipe, crouton.FormatInfo},

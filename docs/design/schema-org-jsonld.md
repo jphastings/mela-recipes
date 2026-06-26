@@ -92,8 +92,8 @@ set only the parse `Features`. JSON-LD *write* is cheap and can be added later.
 - **Images are URLs, not bytes.** `Images []utils.B64Image` expects image data. Decide:
   (a) store nothing and skip images, (b) fetch the URL and wrap as `B64Image` so the
   existing image-optimise standardisation applies. Fetching is a network op — gate it behind
-  a `ParseOptions` flag, defaulting to skip. (`ParseOptions` already carries an `*llm.Connection`;
-  a `FetchImages bool` could be added there.)
+  a `ParseOptions` flag, defaulting to skip. (A `FetchImages bool` could be added to
+  `ParseOptions`.)
 - **Pick one Recipe per document.** If multiple `Recipe` nodes exist, take the first valid
   one (or emit each as a separate `ParseEvent`).
 - **HTML entities & embedded markup** in instructions/ingredients should be unescaped and

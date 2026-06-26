@@ -3,36 +3,56 @@ package protected
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"path/filepath"
 	"testing"
 
 	"github.com/jphastings/recipes/internal/formats"
-	"github.com/jphastings/recipes/mela"
+	"github.com/jphastings/recipes/internal/standardize"
 	"github.com/jphastings/recipes/utils"
 	"github.com/yeka/zip"
 )
 
-// makeRecipes builds n distinct, fully-populated Mela recipes, each carrying a
-// book reference so question generation can produce page-based locators.
-func makeRecipes(t *testing.T, n int) []formats.Recipe {
-	t.Helper()
+// fakeRecipe is a minimal formats.Recipe used to exercise protected without
+// depending on any concrete recipe format (protected is format-agnostic).
+type fakeRecipe struct {
+	title string
+	id    string
+	body  string
+}
+
+func (r *fakeRecipe) Name() string                              { return r.title }
+func (r *fakeRecipe) Format() *formats.Format                   { return nil }
+func (r *fakeRecipe) Filename() string                          { return r.title + ".melarecipe" }
+func (r *fakeRecipe) Standardize() ([]standardize.Std, error)   { return nil, nil }
+func (r *fakeRecipe) Marshal(w io.Writer) error                 { _, err := io.WriteString(w, r.body); return err }
+func (r *fakeRecipe) Export() (formats.InterchangeRecipe, error) {
+	ir := formats.NewInterchangeRecipe()
+	ir.ID = r.id
+	ir.Title = r.title
+	ir.Description = "This tasty dish brings comfort. Serve warm with extra sauce."
+	ir.Instructions = []formats.TitledList{{Title: "", List: []string{
+		"Gather every needed ingredient together carefully",
+		"Combine flour sugar butter together slowly",
+		"Bake until golden brown throughout completely",
+	}}}
+	return ir, nil
+}
+
+// makeRecipes builds n distinct recipes, each with a book reference so question
+// generation can produce page-based locators.
+func makeRecipes(n int) []formats.Recipe {
 	words := []string{"alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet"}
 
 	recipes := make([]formats.Recipe, n)
 	for i := 0; i < n; i++ {
-		r := &mela.Recipe{
-			Title: fmt.Sprintf("Recipe number %s", words[i%len(words)]),
-			Text:  fmt.Sprintf("This %s dish brings warmth. Serve immediately while piping hot.", words[i%len(words)]),
-			Instructions: mela.SectionedSequence(
-				"Gather every needed ingredient together carefully\n" +
-					fmt.Sprintf("Combine flour sugar butter %s slowly\n", words[i%len(words)]) +
-					"Bake until golden brown throughout completely",
-			),
+		title := fmt.Sprintf("Recipe number %s", words[i%len(words)])
+		br := utils.BookRef{
+			Book:         utils.Book{ISBN13: "9781234567897"},
+			Pages:        utils.MustParsePages(fmt.Sprintf("%d", 40+i)),
+			RecipeNumber: uint(i%3 + 1),
 		}
-		if err := r.SetBook("9781234567897", utils.MustParsePages(fmt.Sprintf("%d", 40+i)), uint(i%3+1)); err != nil {
-			t.Fatalf("SetBook: %v", err)
-		}
-		recipes[i] = r
+		recipes[i] = &fakeRecipe{title: title, id: br.URN(), body: "BODY:" + title}
 	}
 	return recipes
 }
@@ -50,10 +70,10 @@ func interchanges(t *testing.T, recipes []formats.Recipe) []formats.InterchangeR
 	return irs
 }
 
-// TestMelaRoundTrip drives the full pipeline: question generation from real Mela
-// recipes, encryption, then decryption with correct answers and re-parsing.
-func TestMelaRoundTrip(t *testing.T) {
-	recipes := makeRecipes(t, defaultQuestionCount)
+// TestRecipeRoundTrip drives the full pipeline: question generation from recipes,
+// encryption, then decryption with correct answers, checking each entry's bytes.
+func TestRecipeRoundTrip(t *testing.T) {
+	recipes := makeRecipes(defaultQuestionCount)
 
 	// Generate the questions once and keep the answers, so the read-side callback
 	// can answer them by exact question text.
@@ -67,10 +87,10 @@ func TestMelaRoundTrip(t *testing.T) {
 	}
 
 	entries := make([]archiveEntry, len(recipes))
-	wantTitles := map[string]string{}
+	wantBody := map[string]string{}
 	for i, r := range recipes {
 		entries[i] = archiveEntry{name: r.Filename(), write: r.Marshal}
-		wantTitles[r.Filename()] = r.Name()
+		wantBody[r.Filename()] = "BODY:" + r.Name()
 	}
 
 	var buf bytes.Buffer
@@ -96,13 +116,13 @@ func TestMelaRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatalf("open %q: %v", e.Name, err)
 		}
-		parsed, err := mela.ParseRecipeStream(rc)
+		data, err := io.ReadAll(rc)
 		rc.Close()
 		if err != nil {
-			t.Fatalf("parse %q: %v", e.Name, err)
+			t.Fatalf("read %q: %v", e.Name, err)
 		}
-		if parsed.Title != wantTitles[e.Name] {
-			t.Errorf("%q title = %q, want %q", e.Name, parsed.Title, wantTitles[e.Name])
+		if string(data) != wantBody[e.Name] {
+			t.Errorf("%q = %q, want %q", e.Name, data, wantBody[e.Name])
 		}
 	}
 }
@@ -110,7 +130,7 @@ func TestMelaRoundTrip(t *testing.T) {
 // TestCreateOpenWrongAnswers exercises the file-based Create/Open convenience and
 // confirms that incorrect answers are rejected.
 func TestCreateOpenWrongAnswers(t *testing.T) {
-	recipes := makeRecipes(t, defaultQuestionCount)
+	recipes := makeRecipes(defaultQuestionCount)
 	path := filepath.Join(t.TempDir(), "book.protectedrecipes")
 
 	if err := Create(path, recipes); err != nil {
