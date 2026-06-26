@@ -1,4 +1,4 @@
-package mela
+package paprika
 
 import (
 	"fmt"
@@ -22,35 +22,40 @@ func ImportRecipe(r formats.Recipe) (formats.Recipe, error) {
 		return nil, err
 	}
 
-	id := ir.ID
-	if id == "" {
+	uid := ir.ID
+	if uid == "" {
 		if newID, err := uuid.NewUUID(ir.Title); err == nil {
-			id = newID.String()
+			uid = newID.String()
 		}
 	}
 
-	mr := &Recipe{
+	pr := &Recipe{
 		filename: formats.WithoutExt(r.Filename()),
-		ID:       id,
+		UID:      uid,
 		Title:    ir.Title,
-		// TODO: Link (source)
-		Text:         ir.Description,
-		Ingredients:  formats.TitledListsToSectioned(ir.Ingredients),
-		Instructions: formats.TitledListsToSectioned(ir.Instructions),
-		Images:       ir.Images,
-
-		Categories: importTags(ir.Tags),
-		Yield:      PeopleCount(ir.Yield),
+		// TODO: Source / SourceURL
+		Description: ir.Description,
+		Notes:       ir.Notes,
+		Ingredients: formats.TitledListsToSectioned(ir.Ingredients),
+		Directions:  formats.TitledListsToSectioned(ir.Instructions),
+		Servings:    ir.Yield,
+		Categories:  importTags(ir.Tags),
 
 		PrepTime:  formats.FormatDuration(ir.PrepTime),
 		CookTime:  formats.FormatDuration(ir.CookTime),
 		TotalTime: formats.FormatDuration(ir.TotalTime),
 	}
 
-	return mr, nil
+	// Paprika's export format carries a single primary photo; any further
+	// interchange images are dropped on conversion.
+	if len(ir.Images) > 0 {
+		pr.PhotoData = ir.Images[0]
+	}
+
+	return pr, nil
 }
 
-// importTags carries the interchange recipe's tags across as Mela categories,
+// importTags carries the interchange recipe's tags across as Paprika categories,
 // always returning a non-nil slice.
 func importTags(tags []string) []string {
 	if tags == nil {

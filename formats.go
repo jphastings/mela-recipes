@@ -11,12 +11,14 @@ import (
 	"github.com/jphastings/recipes/epub"
 	"github.com/jphastings/recipes/internal/formats"
 	"github.com/jphastings/recipes/mela"
+	"github.com/jphastings/recipes/paprika"
 )
 
 func AvailableFormats() []*formats.Format {
 	return []*formats.Format{
 		mela.FormatInfo,
 		crouton.FormatInfo,
+		paprika.FormatInfo,
 		epub.FormatInfo,
 		cooklang.FormatInfo,
 	}

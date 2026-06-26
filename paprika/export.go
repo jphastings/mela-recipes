@@ -1,30 +1,30 @@
-package mela
+package paprika
 
 import (
 	"errors"
 
 	"github.com/jphastings/recipes/internal/formats"
+	"github.com/jphastings/recipes/utils"
 )
 
-// Export converts a Mela recipe into the interchange format. It is the inverse
-// of ImportRecipe; fields the interchange format cannot represent (eg. link,
-// nutrition) are dropped. The interchange filename is left unset, as that field
-// has no exported setter.
+// Export converts a Paprika recipe into the interchange format. It is the
+// inverse of ImportRecipe; fields the interchange format cannot represent (eg.
+// nutritional_info, source, rating, difficulty) are dropped.
 func (r *Recipe) Export() (formats.InterchangeRecipe, error) {
 	ir := formats.NewInterchangeRecipe()
-	ir.ID = r.ID
+	ir.ID = r.UID
 	ir.Title = r.Title
-	ir.Description = r.Text
+	ir.Description = r.Description
 	ir.Notes = r.Notes
-	ir.Yield = string(r.Yield)
+	ir.Yield = r.Servings
 	ir.Ingredients = formats.SectionedToTitledLists(r.Ingredients)
-	ir.Instructions = formats.SectionedToTitledLists(r.Instructions)
+	ir.Instructions = formats.SectionedToTitledLists(r.Directions)
 
 	if r.Categories != nil {
 		ir.Tags = r.Categories
 	}
-	if r.Images != nil {
-		ir.Images = r.Images
+	if len(r.PhotoData) > 0 {
+		ir.Images = []utils.B64Image{r.PhotoData}
 	}
 
 	prep, prepErr := r.PrepTime.Parse()

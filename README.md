@@ -66,6 +66,6 @@ Different recipe formats have support for different functionality. This table sh
 
 | Feature            | Mela | Crouton | Paprika | Cooklang |
 |--------------------|:----:|:-------:|:-------:|:--------:|
-| Image optimize     |  ✅   |    ✅    |    ❔    |    ✅     |
+| Image optimize     |  ✅   |    ✅    |    ✅    |    ✅     |
 | Recipe description |  ✅   |    ❌    |    ✅    |    ⚙️     |
-| ISBNs              |  ⚙️   |    ❌    |    ❔    |    ⚙️     |
+| ISBNs              |  ⚙️   |    ❌    |    ⚙️    |    ⚙️     |

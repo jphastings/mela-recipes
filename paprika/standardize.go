@@ -1,4 +1,4 @@
-package mela
+package paprika
 
 import (
 	"errors"
@@ -8,9 +8,9 @@ import (
 )
 
 // Standardize applies every standardization in a best-effort, fail-soft manner:
-// a failure in one step is recorded but does not prevent the others from running.
-// The returned slice lists only the standardizations that were actually applied,
-// and the returned error (via errors.Join) reports any steps that failed.
+// a failure in one step is recorded but does not prevent the others from
+// running. The returned slice lists only the standardizations that were actually
+// applied; the returned error reports any steps that failed.
 func (r *Recipe) Standardize() ([]standardize.Std, error) {
 	var stds []standardize.Std
 	var errs []error
@@ -24,27 +24,26 @@ func (r *Recipe) Standardize() ([]standardize.Std, error) {
 	if err != nil {
 		errs = append(errs, err)
 	} else if found {
-		if err := r.SetBook(book.ISBN13, book.Pages, book.RecipeNumber); err != nil {
-			errs = append(errs, err)
-		} else {
-			r.Notes = newNotes
-			stds = append(stds, standardize.StdISBN)
-		}
+		r.Notes = newNotes
+		r.UID = book.URN()
+		stds = append(stds, standardize.StdISBN)
 	}
 
-	if r.Images == nil {
-		r.Images = make([]utils.B64Image, 0)
-	}
 	if r.Categories == nil {
 		r.Categories = make([]string, 0)
 	}
 
-	resized, err := utils.OptimizeImages(r.Images)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	if resized {
-		stds = append(stds, standardize.StdImages)
+	if len(r.PhotoData) > 0 {
+		images := []utils.B64Image{r.PhotoData}
+		resized, err := utils.OptimizeImages(images)
+		if err != nil {
+			errs = append(errs, err)
+		} else {
+			r.PhotoData = images[0]
+		}
+		if resized {
+			stds = append(stds, standardize.StdImages)
+		}
 	}
 
 	return stds, errors.Join(errs...)

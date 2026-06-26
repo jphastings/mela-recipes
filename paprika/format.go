@@ -1,17 +1,15 @@
-package mela
+package paprika
 
-import (
-	"github.com/jphastings/recipes/internal/formats"
-)
+import "github.com/jphastings/recipes/internal/formats"
 
 const (
-	recipeExt     = ".melarecipe"
-	collectionExt = ".melarecipes"
+	recipeExt     = ".paprikarecipe"
+	collectionExt = ".paprikarecipes"
 )
 
 var FormatInfo = &formats.Format{
-	Name: "Mela",
-	URL:  "https://mela.recipes",
+	Name: "Paprika",
+	URL:  "https://www.paprikaapp.com",
 	Features: formats.Features{
 		ParseRecipe:     true,
 		WriteRecipe:     true,

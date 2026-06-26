@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"image"
 	_ "image/jpeg"
@@ -15,6 +16,24 @@ import (
 
 	"github.com/gen2brain/jpegli"
 )
+
+// OptimizeImages optimises each image in the slice in place, reporting whether
+// any image was actually resized or recompressed. Per-image failures are
+// collected into the returned error and leave that image unchanged.
+func OptimizeImages(images []B64Image) (bool, error) {
+	var resized bool
+	var errs []error
+	for i, img := range images {
+		newImg, ok, err := img.Optimize()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("image %d: %w", i, err))
+			continue
+		}
+		images[i] = newImg
+		resized = resized || ok
+	}
+	return resized, errors.Join(errs...)
+}
 
 func FromFile(f fs.File) (B64Image, error) {
 	data, err := io.ReadAll(f)
