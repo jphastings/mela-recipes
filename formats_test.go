@@ -22,18 +22,18 @@ func TestParseDestination(t *testing.T) {
 		{"mela", "", AsTypeAny, mela.FormatInfo},
 		{".melarecipe", "", AsTypeRecipe, mela.FormatInfo},
 		{".melarecipes", "", AsTypeCollection, mela.FormatInfo},
-		{"something.melarecipe", "something.melarecipe", AsTypeRecipe, mela.FormatInfo},
-		{"another.melarecipes", "another.melarecipes", AsTypeCollection, mela.FormatInfo},
+		{"something.melarecipe", "something", AsTypeRecipe, mela.FormatInfo},
+		{"another.melarecipes", "another", AsTypeCollection, mela.FormatInfo},
 
 		{"Crouton", "", AsTypeAny, crouton.FormatInfo},
 		{"crouton", "", AsTypeAny, crouton.FormatInfo},
 		{".crumb", "", AsTypeRecipe, crouton.FormatInfo},
-		{"something.crumb", "something.crumb", AsTypeRecipe, crouton.FormatInfo},
+		{"something.crumb", "something", AsTypeRecipe, crouton.FormatInfo},
 
 		{"Cooklang", "", AsTypeAny, cooklang.FormatInfo},
 		{"cooklang", "", AsTypeAny, cooklang.FormatInfo},
 		{".cook", "", AsTypeRecipe, cooklang.FormatInfo},
-		{"something.cook", "something.cook", AsTypeRecipe, cooklang.FormatInfo},
+		{"something.cook", "something", AsTypeRecipe, cooklang.FormatInfo},
 
 		{"nope", "", AsTypeAny, nil},
 		{".nope", "", AsTypeAny, nil},
