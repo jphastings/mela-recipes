@@ -10,7 +10,7 @@
 
 ## Improvements
 
-- [ ] Tests for OpenLibrary link standardizer
-- [ ] Handle errors & continue in standardizer
-- [ ] Tests for .melarecipes files
-- [ ] Examples in tests (for docs)
+- [ ] Consider network-based enhancement of recipes (e.g. OpenLibrary book-title lookup)
+- [x] Handle errors & continue in standardizer
+- [x] Tests for .melarecipes files
+- [x] Examples in tests (for docs)

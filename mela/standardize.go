@@ -1,30 +1,32 @@
 package mela
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/jphastings/recipes/internal/standardize"
 	"github.com/jphastings/recipes/utils"
 )
 
+// Standardize applies every standardization in a best-effort, fail-soft manner:
+// a failure in one step is recorded but does not prevent the others from running.
+// The returned slice lists only the standardizations that were actually applied,
+// and the returned error (via errors.Join) reports any steps that failed.
 func (r *Recipe) Standardize() ([]standardize.Std, error) {
 	var stds []standardize.Std
+	var errs []error
+
 	var stdApplied bool
 	if r.filename, stdApplied = standardize.Filename(r.filename, r.Title); stdApplied {
 		stds = append(stds, standardize.StdFilename)
 	}
 
-	if stdApplied, err := bookFromNotes(r); err == nil {
-		return nil, err
-	} else if stdApplied {
+	if applied, err := bookFromNotes(r); err != nil {
+		errs = append(errs, err)
+	} else if applied {
 		stds = append(stds, standardize.StdISBN)
 	}
 
@@ -40,7 +42,8 @@ func (r *Recipe) Standardize() ([]standardize.Std, error) {
 	for i, img := range r.Images {
 		newImg, ok, err := img.Optimize()
 		if err != nil {
-			return nil, err
+			errs = append(errs, fmt.Errorf("image %d: %w", i, err))
+			continue
 		}
 		r.Images[i] = newImg
 		imagesResized = imagesResized || ok
@@ -49,11 +52,7 @@ func (r *Recipe) Standardize() ([]standardize.Std, error) {
 		stds = append(stds, standardize.StdImages)
 	}
 
-	// if useNetwork {
-	// 	_ = linkFromOpenLibrary(r)
-	// }
-
-	return stds, nil
+	return stds, errors.Join(errs...)
 }
 
 var extractor = regexp.MustCompile(`(?i)(\s*)((?:isbn:? ?|_)([0-9X-]+)\r?\n?((?:, p\.|pages?:? ?)([^_\s,]+)\r?\n?((?:recipe:? ?|, )?(\d+)(?:[a-z]{2})?\r?\n?)?)?)_?(\s*)`)
@@ -140,108 +139,4 @@ func ordinal(n uint64, useWords bool) string {
 	default:
 		return fmt.Sprintf("%dth", n)
 	}
-}
-
-type thingsResponse struct {
-	Status string   `json:"status"`
-	Result []string `json:"result"`
-}
-
-type getResponse struct {
-	Status string `json:"status"`
-	Result struct {
-		Title string `json:"title"`
-	} `json:"result"`
-}
-
-func linkFromOpenLibrary(r *Recipe) error {
-	if r.Book().ISBN13 == "" {
-		return nil
-	}
-
-	client := http.Client{
-		Timeout: 1 * time.Second,
-	}
-
-	query := map[string]string{
-		"type":    "/type/edition",
-		"isbn_13": r.Book().ISBN13,
-	}
-	queryJSON, err := json.Marshal(query)
-	if err != nil {
-		return err
-	}
-
-	qv := url.Values{}
-	qv.Set("query", string(queryJSON))
-
-	queryURL := url.URL{
-		Scheme:   "https",
-		Host:     "openlibrary.org",
-		Path:     "/api/things",
-		RawQuery: qv.Encode(),
-	}
-
-	vRes, err := client.Get(queryURL.String())
-	if err != nil {
-		return err
-	}
-
-	vBody, err := io.ReadAll(vRes.Body)
-	if err != nil {
-		return fmt.Errorf("unable to read OpenLibrary response: %w", err)
-	}
-
-	if vRes.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code from OpenLibrary: %d (%s)", vRes.StatusCode, vBody)
-	}
-
-	var things thingsResponse
-	if err := json.Unmarshal(vBody, &things); err != nil {
-		return fmt.Errorf("unable to parse OpenLibrary response: %w", err)
-	}
-
-	if things.Status != "ok" {
-		return fmt.Errorf("response status from OpenLibrary not ok: %s", things.Status)
-	}
-
-	if len(things.Result) == 0 {
-		return fmt.Errorf("no books found with this ISBN in the OpenLibrary")
-	}
-
-	gv := url.Values{}
-	gv.Set("key", things.Result[0])
-
-	getURL := url.URL{
-		Scheme:   "https",
-		Host:     "openlibrary.org",
-		Path:     "/api/get",
-		RawQuery: gv.Encode(),
-	}
-
-	gRes, err := client.Get(getURL.String())
-	if err != nil {
-		return err
-	}
-
-	gBody, err := io.ReadAll(gRes.Body)
-	if err != nil {
-		return fmt.Errorf("unable to read OpenLibrary response: %w", err)
-	}
-
-	if gRes.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code from OpenLibrary: %d (%s)", gRes.StatusCode, gBody)
-	}
-
-	var get getResponse
-	if err := json.Unmarshal(gBody, &get); err != nil {
-		return fmt.Errorf("unable to parse OpenLibrary response: %w", err)
-	}
-
-	if get.Status != "ok" {
-		return fmt.Errorf("response status from OpenLibrary not ok: %s", get.Status)
-	}
-
-	r.Link = get.Result.Title
-	return nil
 }

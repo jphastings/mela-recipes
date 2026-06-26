@@ -47,10 +47,13 @@ func TestRawRecipe_Standardize(t *testing.T) {
 			stds, err := r.Standardize()
 			assert.NoError(t, err)
 
-			assert.Equal(t, expStds, stds)
-
-			if reflect.DeepEqual(test.wantBookRef, Book{}) {
+			// An empty wantBookRef means the notes held no ISBN, so nothing
+			// should have been standardized and the recipe keeps its original book.
+			if reflect.DeepEqual(test.wantBookRef, BookRef{}) {
+				assert.Empty(t, stds)
 				test.wantBookRef = fallbackBook
+			} else {
+				assert.Equal(t, expStds, stds)
 			}
 
 			assert.Equal(t, test.wantBookRef, r.Book())

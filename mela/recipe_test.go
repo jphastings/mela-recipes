@@ -3,64 +3,110 @@ package mela_test
 import (
 	"bytes"
 	"image"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/jphastings/recipes/internal/formats"
 	"github.com/jphastings/recipes/mela"
 )
 
-// func TestParseRecipe(t *testing.T) {
-// 	for _, fixtureNum := range []string{"a", "b", "c"} {
-// 		f, err := os.Open("fixtures/" + fixtureNum + ".melarecipe")
-// 		if err != nil {
-// 			t.Error(err)
-// 			return
-// 		}
+// drain collects every recipe streamed over a parse event channel, failing the
+// test on the first error event.
+func drain(t *testing.T, events <-chan formats.ParseEvent) []*mela.Recipe {
+	t.Helper()
 
-// 		recipe, err := mela.ParseRecipe(f)
-// 		if err != nil {
-// 			t.Error(err)
-// 			return
-// 		}
+	var recipes []*mela.Recipe
+	for e := range events {
+		if e.Err != nil {
+			t.Fatalf("unexpected parse error: %v", e.Err)
+		}
+		if e.Recipe == nil {
+			continue
+		}
+		r, ok := e.Recipe.(*mela.Recipe)
+		if !ok {
+			t.Fatalf("expected *mela.Recipe, got %T", e.Recipe)
+		}
+		recipes = append(recipes, r)
+	}
+	return recipes
+}
 
-// 		EnsureRecipe(t, recipe, fixtureNum)
-// 	}
-// }
+func TestParseRecipeFile(t *testing.T) {
+	for _, id := range []string{"a", "b", "c"} {
+		t.Run(id, func(t *testing.T) {
+			events, err := mela.ParseRecipeFile("fixtures/" + id + ".melarecipe")
+			if err != nil {
+				t.Fatal(err)
+			}
 
-// func TestParseRecipes(t *testing.T) {
-// 	f, err := os.Open("fixtures/a+b.melarecipes")
-// 	if err != nil {
-// 		t.Error(err)
-// 		return
-// 	}
+			recipes := drain(t, events)
+			if len(recipes) != 1 {
+				t.Fatalf("expected 1 recipe, got %d", len(recipes))
+			}
 
-// 	fs, err := f.Stat()
-// 	if err != nil {
-// 		t.Error(err)
-// 		return
-// 	}
+			EnsureRecipe(t, recipes[0], id)
+		})
+	}
+}
 
-// 	i := 0
-// 	expectedIDs := []string{"b", "a"}
+func TestParseRecipesFile(t *testing.T) {
+	events, _, err := mela.ParseRecipesFile("fixtures/a+b.melarecipes")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	checkRecipes := func(recipe *mela.Recipe, err error) {
-// 		if err != nil {
-// 			t.Error(err)
-// 			return
-// 		}
+	recipes := drain(t, events)
 
-// 		expectedID := expectedIDs[i]
-// 		i++
+	// The archive stores the recipes in the order "B title", "A title".
+	wantIDs := []string{"b", "a"}
+	if len(recipes) != len(wantIDs) {
+		t.Fatalf("expected %d recipes, got %d", len(wantIDs), len(recipes))
+	}
+	for i, id := range wantIDs {
+		EnsureRecipe(t, recipes[i], id)
+	}
+}
 
-// 		EnsureRecipe(t, recipe, expectedID)
-// 	}
+func TestCollectionRoundTrip(t *testing.T) {
+	events, _, err := mela.ParseRecipesFile("fixtures/a+b.melarecipes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	originals := drain(t, events)
 
-// 	if err := mela.ParseRecipes(f, fs.Size()); err != nil {
-// 		t.Error(err)
-// 		return
-// 	}
-// }
+	out := filepath.Join(t.TempDir(), "round-trip")
+	cw, err := mela.NewCollection(formats.CollectionDetails{
+		Filename:          out,
+		OverwriteExisting: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range originals {
+		if err := cw.Add(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := cw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	events, _, err = mela.ParseRecipesFile(out + ".melarecipes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := drain(t, events)
+	if len(got) != len(originals) {
+		t.Fatalf("expected %d recipes after round-trip, got %d", len(originals), len(got))
+	}
+
+	for _, r := range got {
+		EnsureRecipe(t, r, r.ID)
+	}
+}
 
 var oneMin = time.Minute
 var oneHour = time.Hour
@@ -218,25 +264,30 @@ func EnsureRecipe(t *testing.T, got *mela.Recipe, wantID string) {
 	gotPrepTime, err := got.PrepTime.Parse()
 	if err != nil {
 		t.Errorf("For %s, could not parse Recipe PrepTime: %v", wantID, err)
-	} else if durationsSame(want.ParsedPrepTime, gotPrepTime) {
+	} else if durationsDiffer(want.ParsedPrepTime, gotPrepTime) {
 		t.Errorf("For %s, incorrect Recipe PrepTime: want = %v, got = %v", wantID, want.ParsedPrepTime, gotPrepTime)
 	}
 
 	gotCookTime, err := got.CookTime.Parse()
 	if err != nil {
 		t.Errorf("For %s, could not parse Recipe CookTime: %v", wantID, err)
-	} else if durationsSame(want.ParsedCookTime, gotCookTime) {
+	} else if durationsDiffer(want.ParsedCookTime, gotCookTime) {
 		t.Errorf("For %s, incorrect Recipe CookTime: want = %v, got = %v", wantID, want.ParsedCookTime, gotCookTime)
 	}
 
 	gotTotalTime, err := got.TotalTime.Parse()
 	if err != nil {
 		t.Errorf("For %s, could not parse Recipe TotalTime: %v", wantID, err)
-	} else if durationsSame(want.ParsedTotalTime, gotTotalTime) {
+	} else if durationsDiffer(want.ParsedTotalTime, gotTotalTime) {
 		t.Errorf("For %s, incorrect Recipe TotalTime: want = %v, got = %v", wantID, want.ParsedTotalTime, gotTotalTime)
 	}
 }
 
-func durationsSame(want, got *time.Duration) bool {
-	return (want == nil && got != nil) || (want != nil && *got != *want)
+// durationsDiffer reports whether two optional durations differ, treating an
+// absent (nil) duration and a set one as different.
+func durationsDiffer(want, got *time.Duration) bool {
+	if want == nil || got == nil {
+		return want != got
+	}
+	return *want != *got
 }
