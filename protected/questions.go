@@ -21,9 +21,10 @@ const (
 	minWordLength = 4
 )
 
-// questionMaker functions return a question and its answer from a recipe, or
-// ok=false if this recipe can't furnish a question of this kind.
-type questionMaker func(formats.InterchangeRecipe) (question, answer string, ok bool)
+// questionMaker functions return a question and its answer from a recipe, given
+// the locator that tells the reader which recipe to consult. ok is false if this
+// recipe can't furnish a question of this kind.
+type questionMaker func(ir formats.InterchangeRecipe, locator string) (question, answer string, ok bool)
 
 var (
 	questionMakers = []questionMaker{
@@ -38,9 +39,18 @@ var (
 // across the provided recipes, using at most one question per recipe.
 func prepareQuestions(recipes []formats.InterchangeRecipe, count int) (questions, answers []string, err error) {
 	for _, rID := range rand.Perm(len(recipes)) {
+		ir := recipes[rID]
+		locator := recipeLocator(ir)
+
 		for _, qmID := range rand.Perm(len(questionMakers)) {
-			q, a, ok := questionMakers[qmID](recipes[rID])
+			q, a, ok := questionMakers[qmID](ir, locator)
 			if !ok {
+				continue
+			}
+			// The locator names the recipe (eg. by title); if the answer is part
+			// of it the question gives itself away, so skip that pairing and try
+			// another kind of question.
+			if locatorRevealsAnswer(locator, a) {
 				continue
 			}
 
@@ -61,16 +71,23 @@ func prepareQuestions(recipes []formats.InterchangeRecipe, count int) (questions
 	return questions, answers, nil
 }
 
-func questionRecipeTitle(ir formats.InterchangeRecipe) (string, string, bool) {
+// locatorRevealsAnswer reports whether the answer is already contained in the
+// locator text, which would let the reader answer without consulting the recipe.
+func locatorRevealsAnswer(locator, answer string) bool {
+	a := normalize(answer)
+	return a != "" && strings.Contains(normalize(locator), a)
+}
+
+func questionRecipeTitle(ir formats.InterchangeRecipe, locator string) (string, string, bool) {
 	// Brackets suggest a subtitle, which may be hard to read back exactly — skip.
 	if ir.Title == "" || strings.Contains(ir.Title, "(") || strings.Contains(ir.Title, "[") {
 		return "", "", false
 	}
 
-	return recipeLocationText(ir) + "What is the recipe's title?", ir.Title, true
+	return locator + "What is the recipe's title?", ir.Title, true
 }
 
-func questionRecipeDescription(ir formats.InterchangeRecipe) (string, string, bool) {
+func questionRecipeDescription(ir formats.InterchangeRecipe, locator string) (string, string, bool) {
 	if ir.Description == "" {
 		return "", "", false
 	}
@@ -83,14 +100,14 @@ func questionRecipeDescription(ir formats.InterchangeRecipe) (string, string, bo
 		return "", "", false
 	}
 
-	question := recipeLocationText(ir) + fmt.Sprintf(
+	question := locator + fmt.Sprintf(
 		"In the recipe's description, what is the %s word of the %s sentence?",
 		wordLoc, sentenceLoc,
 	)
 	return question, word, true
 }
 
-func questionRecipeInstructions(ir formats.InterchangeRecipe) (string, string, bool) {
+func questionRecipeInstructions(ir formats.InterchangeRecipe, locator string) (string, string, bool) {
 	if len(ir.Instructions) == 0 {
 		return "", "", false
 	}
@@ -119,17 +136,18 @@ func questionRecipeInstructions(ir formats.InterchangeRecipe) (string, string, b
 		lineLoc = "final"
 	}
 
-	question := recipeLocationText(ir) + fmt.Sprintf(
+	question := locator + fmt.Sprintf(
 		"%s, what is the %s word of the %s step?",
 		secLocator, wordLoc, lineLoc,
 	)
 	return question, word, true
 }
 
-// recipeLocationText produces a human-readable instruction for finding the recipe.
+// recipeLocator produces a human-readable instruction for finding the recipe.
 // When the recipe's ID encodes a book reference (an ISBN URN) the physical page is
-// used; otherwise it falls back to the recipe's title.
-func recipeLocationText(ir formats.InterchangeRecipe) string {
+// used; otherwise it falls back to the recipe's title (in which case the title
+// itself must not become a required answer — see locatorRevealsAnswer).
+func recipeLocator(ir formats.InterchangeRecipe) string {
 	br, err := utils.NewBookRefFromURN(ir.ID)
 	if err != nil || len(br.Pages) == 0 {
 		if ir.Title != "" {
