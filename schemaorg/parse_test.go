@@ -1,7 +1,13 @@
 package schemaorg
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
+	"image"
+	"image/png"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,7 +25,7 @@ func load(t *testing.T, name string) formats.InterchangeRecipe {
 	if err != nil {
 		t.Fatalf("read %s: %v", name, err)
 	}
-	ir, err := extractRecipe(data, strings.ToLower(filepath.Ext(name)))
+	ir, err := extractRecipe(data, strings.ToLower(filepath.Ext(name)), false)
 	if err != nil {
 		t.Fatalf("extractRecipe(%s): %v", name, err)
 	}
@@ -185,9 +191,53 @@ func TestParseEmitsRecipe(t *testing.T) {
 }
 
 func TestExtractNoRecipe(t *testing.T) {
-	_, err := extractRecipe([]byte("<html><body><p>nothing structured here</p></body></html>"), ".html")
+	_, err := extractRecipe([]byte("<html><body><p>nothing structured here</p></body></html>"), ".html", false)
 	if !errors.Is(err, errNoRecipe) {
 		t.Errorf("got %v, want errNoRecipe", err)
+	}
+}
+
+func TestImageFetching(t *testing.T) {
+	var png4 bytes.Buffer
+	if err := png.Encode(&png4, image.NewRGBA(image.Rect(0, 0, 4, 4))); err != nil {
+		t.Fatalf("encode png: %v", err)
+	}
+
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(png4.Bytes())
+	}))
+	defer srv.Close()
+
+	jsonld := fmt.Sprintf(
+		`{"@context":"https://schema.org","@type":"Recipe","name":"Photo Test","recipeIngredient":["x"],"recipeInstructions":["do x"],"image":%q}`,
+		srv.URL+"/hero.png",
+	)
+
+	// Network off: the URL is parsed but never fetched.
+	off, err := extractRecipe([]byte(jsonld), ".json", false)
+	if err != nil {
+		t.Fatalf("extractRecipe (off): %v", err)
+	}
+	if len(off.Images) != 0 {
+		t.Errorf("network off: got %d images, want 0", len(off.Images))
+	}
+	if hits != 0 {
+		t.Errorf("network off: server was hit %d times, want 0", hits)
+	}
+
+	// Network on: the image is downloaded and embedded.
+	on, err := extractRecipe([]byte(jsonld), ".json", true)
+	if err != nil {
+		t.Fatalf("extractRecipe (on): %v", err)
+	}
+	if len(on.Images) != 1 {
+		t.Fatalf("network on: got %d images, want 1", len(on.Images))
+	}
+	if len(on.Images[0]) == 0 {
+		t.Error("network on: embedded image is empty")
 	}
 }
 

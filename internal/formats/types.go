@@ -66,4 +66,8 @@ type ParseOptions struct {
 	AskOwnership func(question string) (answer string, err error)
 	// ExplainOwnership is called once before the first ownership question.
 	ExplainOwnership func(questionCount, failCount int)
+	// AllowNetwork permits a parser to make network requests while importing —
+	// for example, fetching the images a web recipe references by URL. It is off
+	// by default, keeping imports offline unless the caller opts in.
+	AllowNetwork bool
 }

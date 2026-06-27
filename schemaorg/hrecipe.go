@@ -10,12 +10,12 @@ import (
 // hrecipeRecipe extracts a recipe marked up with the h-recipe microformat
 // (microformats2 `h-recipe` with p-name/p-ingredient/e-instructions/…, or the
 // legacy `hrecipe` with fn/ingredient/instructions classes).
-func hrecipeRecipe(doc *html.Node) (formats.InterchangeRecipe, bool) {
+func hrecipeRecipe(doc *html.Node) (formats.InterchangeRecipe, []string, bool) {
 	root := findFirst(doc, func(n *html.Node) bool {
 		return n.Type == html.ElementNode && (hasClass(n, "h-recipe") || hasClass(n, "hrecipe"))
 	})
 	if root == nil {
-		return formats.InterchangeRecipe{}, false
+		return formats.InterchangeRecipe{}, nil, false
 	}
 
 	byClass := collectByClass(root)
@@ -48,7 +48,24 @@ func hrecipeRecipe(doc *html.Node) (formats.InterchangeRecipe, bool) {
 
 	ir.Source = formats.Source{Name: mfFirstText(byClass, "p-author", "author")}
 
-	return ir, true
+	var urls []string
+	for _, n := range mfNodes(byClass, "u-photo", "photo") {
+		if u := mfURL(n); u != "" {
+			urls = append(urls, u)
+		}
+	}
+
+	return ir, urls, true
+}
+
+// mfURL reads a URL-valued microformat property (u-photo), preferring src/href.
+func mfURL(n *html.Node) string {
+	for _, attr := range []string{"src", "href", "data", "value"} {
+		if v := getAttr(n, attr); v != "" {
+			return v
+		}
+	}
+	return cleanText(nodeText(n))
 }
 
 // collectByClass indexes every descendant element of root by each of its class

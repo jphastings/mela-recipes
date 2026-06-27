@@ -8,17 +8,19 @@ import (
 )
 
 // microdataRecipe extracts a recipe expressed as schema.org microdata
-// (itemscope / itemtype / itemprop attributes).
-func microdataRecipe(doc *html.Node) (formats.InterchangeRecipe, bool) {
+// (itemscope / itemtype / itemprop attributes), returning any image URLs
+// separately.
+func microdataRecipe(doc *html.Node) (formats.InterchangeRecipe, []string, bool) {
 	scope := findFirst(doc, func(n *html.Node) bool {
 		return n.Type == html.ElementNode &&
 			hasAttr(n, "itemscope") &&
 			typeContainsRecipe(getAttr(n, "itemtype"))
 	})
 	if scope == nil {
-		return formats.InterchangeRecipe{}, false
+		return formats.InterchangeRecipe{}, nil, false
 	}
-	return buildFromProps(collectProps(scope)), true
+	ir, urls := buildFromProps(collectProps(scope))
+	return ir, urls, true
 }
 
 func hasAttr(n *html.Node, key string) bool {
@@ -63,7 +65,7 @@ func collectProps(scope *html.Node) map[string][]*html.Node {
 	return props
 }
 
-func buildFromProps(props map[string][]*html.Node) formats.InterchangeRecipe {
+func buildFromProps(props map[string][]*html.Node) (formats.InterchangeRecipe, []string) {
 	ir := formats.NewInterchangeRecipe()
 
 	ir.Title = firstPropText(props, "name")
@@ -99,7 +101,14 @@ func buildFromProps(props map[string][]*html.Node) formats.InterchangeRecipe {
 		Name: firstPropText(props, "author"),
 		URI:  firstPropRaw(props, "url"),
 	}
-	return ir
+
+	var urls []string
+	for _, n := range props["image"] {
+		if u := propRaw(n); u != "" {
+			urls = append(urls, u)
+		}
+	}
+	return ir, urls
 }
 
 // instructionSteps turns recipeInstructions microdata into a flat step list:

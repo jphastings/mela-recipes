@@ -8,8 +8,9 @@ import (
 )
 
 // mapSchemaNode converts a decoded schema.org Recipe node into the interchange
-// format.
-func mapSchemaNode(node map[string]any) formats.InterchangeRecipe {
+// format, returning any image URLs separately (images are fetched only when the
+// caller permits network access).
+func mapSchemaNode(node map[string]any) (formats.InterchangeRecipe, []string) {
 	ir := formats.NewInterchangeRecipe()
 
 	ir.Title = text(node["name"])
@@ -33,7 +34,26 @@ func mapSchemaNode(node map[string]any) formats.InterchangeRecipe {
 	ir.Tags = mapTags(node)
 	ir.Source = mapSource(node)
 
-	return ir
+	return ir, imageURLs(node["image"])
+}
+
+// imageURLs collects the image URL(s) from a schema.org "image" value, which may
+// be a URL string, an array of either, or an ImageObject ({ "url": … }).
+func imageURLs(v any) []string {
+	var out []string
+	for _, e := range asSlice(v) {
+		switch t := e.(type) {
+		case string:
+			if u := strings.TrimSpace(t); u != "" {
+				out = append(out, u)
+			}
+		case map[string]any:
+			if u := rawString(t["url"]); u != "" {
+				out = append(out, u)
+			}
+		}
+	}
+	return out
 }
 
 // text reduces a JSON value to a single plain-text line, decoding HTML entities

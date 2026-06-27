@@ -16,7 +16,11 @@ var convertCmd = &cobra.Command{
 	Short: "Convert recipes between different formats",
 	Long:  longExplain(),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		o := withOwnershipPrompts(formats.ParseOptions{})
+		network, err := cmd.Flags().GetBool("network")
+		if err != nil {
+			return err
+		}
+		o := withOwnershipPrompts(formats.ParseOptions{AllowNetwork: network})
 
 		to, err := cmd.Flags().GetString("to")
 		if err != nil {
@@ -54,6 +58,7 @@ func init() {
 	rootCmd.AddCommand(convertCmd)
 	convertCmd.Flags().String("to", "", "The filename, extension, or format to convert into")
 	convertCmd.MarkFlagRequired("to")
+	convertCmd.Flags().Bool("network", false, "Allow network access while importing (eg. to fetch web-recipe images)")
 }
 
 func longExplain() string {
