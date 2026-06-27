@@ -12,6 +12,7 @@ import (
 	"github.com/jphastings/recipes/internal/formats"
 	"github.com/jphastings/recipes/mela"
 	"github.com/jphastings/recipes/paprika"
+	"github.com/jphastings/recipes/schemaorg"
 )
 
 func AvailableFormats() []*formats.Format {
@@ -22,6 +23,7 @@ func AvailableFormats() []*formats.Format {
 		paprika.FormatInfo,
 		epub.FormatInfo,
 		cooklang.FormatInfo,
+		schemaorg.FormatInfo,
 	}
 }
 

@@ -1,0 +1,26 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Recipe",
+  "name": "Layered Trifle",
+  "recipeYield": "8 servings",
+  "totalTime": "PT2H",
+  "recipeIngredient": ["sponge fingers", "custard", "double cream", "mixed berries"],
+  "recipeInstructions": [
+    {
+      "@type": "HowToSection",
+      "name": "Custard",
+      "itemListElement": [
+        { "@type": "HowToStep", "text": "Heat the milk until steaming." },
+        { "@type": "HowToStep", "text": "Whisk in the yolks and sugar, then thicken." }
+      ]
+    },
+    {
+      "@type": "HowToSection",
+      "name": "Assembly",
+      "itemListElement": [
+        { "@type": "HowToStep", "text": "Layer the sponge and custard." },
+        { "@type": "HowToStep", "text": "Top with cream and berries." }
+      ]
+    }
+  ]
+}

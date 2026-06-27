@@ -1,0 +1,17 @@
+{
+  "@context": "http://schema.org",
+  "@type": "Recipe",
+  "name": "Tomato Soup",
+  "description": "A simple weeknight soup.",
+  "url": "http://nextcloud.local/apps/cookbook/recipes/3",
+  "recipeYield": 4,
+  "prepTime": "PT5M",
+  "cookTime": "PT25M",
+  "recipeCategory": "Soup",
+  "recipeIngredient": ["1 onion, diced", "2 cans chopped tomatoes", "500ml stock", "salt and pepper"],
+  "recipeInstructions": [
+    "Soften the onion in a little oil.",
+    "Add the tomatoes and stock, then bring to a simmer.",
+    "Simmer for 20 minutes and blend until smooth."
+  ]
+}
