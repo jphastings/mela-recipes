@@ -30,10 +30,10 @@ func ImportRecipe(r formats.Recipe) (formats.Recipe, error) {
 	}
 
 	mr := &Recipe{
-		filename: formats.WithoutExt(r.Filename()),
-		ID:       id,
-		Title:    ir.Title,
-		// TODO: Link (source)
+		filename:     formats.WithoutExt(r.Filename()),
+		ID:           id,
+		Title:        ir.Title,
+		Link:         ir.Source.URI,
 		Text:         ir.Description,
 		Ingredients:  formats.TitledListsToSectioned(ir.Ingredients),
 		Instructions: formats.TitledListsToSectioned(ir.Instructions),
