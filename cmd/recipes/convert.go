@@ -2,10 +2,13 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/jphastings/recipes"
 	"github.com/jphastings/recipes/internal/formats"
+	cmdhelp "github.com/jphastings/recipes/internal/helpers"
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 )
@@ -49,7 +52,7 @@ var convertCmd = &cobra.Command{
 			cd.OverwriteExisting = overwrite
 			return makeCollection(cd, destFormat, pe)
 		} else {
-			return makeRecipes(filename, destFormat, pe, overwrite)
+			return makeRecipes(cmd, filename, destFormat, pe, overwrite)
 		}
 	},
 }
@@ -128,6 +131,84 @@ func makeCollection(cd *formats.CollectionDetails, destFormat *formats.Format, p
 	return bar.Finish()
 }
 
-func makeRecipes(filename string, destFormat *formats.Format, pe <-chan formats.ParseEvent, overwrite bool) error {
-	return fmt.Errorf("single recipe output not yet implemented")
+func makeRecipes(cmd *cobra.Command, filename string, destFormat *formats.Format, pe <-chan formats.ParseEvent, overwrite bool) error {
+	bar := progressbar.NewOptions(-1, progressbar.OptionFullWidth())
+
+	for e := range pe {
+		if e.N != 0 {
+			bar.ChangeMax(e.N)
+		}
+		bar.Add(e.I)
+
+		if e.Err != nil {
+			progressbar.Bprintf(bar, "⛔️ Couldn't parse: %v\n", e.Err)
+			continue
+		}
+		if e.Recipe == nil {
+			continue
+		}
+
+		progressbar.Bprintf(bar, "📖 Found \"%s\"…\n", e.Recipe.Name())
+
+		// Capture where the recipe came from before Standardize rewrites its
+		// filename from the title, so --out-there can write back beside it.
+		sourceDir := filepath.Dir(e.Recipe.Filename())
+		_, _ = e.Recipe.Standardize()
+
+		imported, err := destFormat.Import(e.Recipe)
+		if err != nil {
+			progressbar.Bprintf(bar, "  ⛔️ Conversion error: %v\n", err)
+			continue
+		}
+
+		path, err := recipeOutputPath(cmd, filename, sourceDir, imported)
+		if err != nil {
+			return err
+		}
+
+		if err := writeRecipe(path, imported, overwrite); err != nil {
+			progressbar.Bprintf(bar, "  ⛔️ Writing error: %v\n", err)
+			continue
+		}
+		progressbar.Bprintf(bar, "  📥 …saved to %s\n\n", path)
+	}
+
+	return bar.Finish()
+}
+
+// recipeOutputPath decides where a converted recipe is written. An explicit
+// destination filename (eg. --to dinner.md) is used verbatim; otherwise the
+// recipe's filename is placed in the directory chosen by the --out-* flags
+// (defaulting to the source directory).
+func recipeOutputPath(cmd *cobra.Command, override, sourceDir string, r formats.Recipe) (string, error) {
+	if override != "" {
+		return override + r.Format().Extension, nil
+	}
+
+	outdir, err := cmdhelp.Outdir(cmd, sourceDir)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(outdir, filepath.Base(r.Filename())), nil
+}
+
+func writeRecipe(path string, r formats.Recipe, overwrite bool) (err error) {
+	flags := os.O_CREATE | os.O_WRONLY
+	if overwrite {
+		flags |= os.O_TRUNC
+	} else {
+		flags |= os.O_EXCL
+	}
+
+	f, err := os.OpenFile(path, flags, 0644)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+	}()
+
+	return r.Marshal(f)
 }

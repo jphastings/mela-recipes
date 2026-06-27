@@ -1,6 +1,6 @@
 - [ ] Add `SourceFilename()` to `formats.Recipe` so I can always report on where the recipe has come from?
 - [ ] Mela: preserve `Notes` when importing from another format — `mela.ImportRecipe` currently drops the interchange `Notes`, so converting e.g. Paprika → Mela loses the notes text (the book reference still survives via the ID).
-- [ ] Implement single-recipe output in `cmd/recipes` — `makeRecipes` is stubbed "not yet implemented" for every format, so `convert --to <file>.<recipeExt>` can't write a single recipe yet.
+- [x] Implement single-recipe output in `cmd/recipes` — `makeRecipes` imports each recipe and writes it to a file, honouring `--out-here`/`--out-there`/`--out-dir`, `--overwrite`, and an explicit `--to <file>.<ext>`.
 - [x] Build a tool for downloading remote images, so URL-only images (e.g. Paprika's `image_url`) can be fetched into a `B64Image` during conversion. (`utils.FetchImage`, used by schema.org and Paprika, gated behind `--network` / `ParseOptions.AllowNetwork`)
 
 ## Lossy-transfer semantic tagging

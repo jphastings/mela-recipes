@@ -16,11 +16,11 @@ func Outdir(cmd *cobra.Command, therePath string) (string, error) {
 	if outdir != "" {
 		// Only error if outdir is a regular file (ie. allow existing and non-existing directories)
 		fi, err := os.Stat(outdir)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return "", err
-		}
-		if !fi.IsDir() {
+		switch {
+		case err == nil && !fi.IsDir():
 			return "", fmt.Errorf("outdir %s is a regular file", outdir)
+		case err != nil && !errors.Is(err, os.ErrNotExist):
+			return "", err
 		}
 		return outdir, os.MkdirAll(outdir, 0700)
 	}

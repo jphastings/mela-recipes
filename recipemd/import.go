@@ -13,5 +13,5 @@ func Import(r formats.Recipe) (formats.Recipe, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Recipe{ir: ir}, nil
+	return &Recipe{filename: formats.WithoutExt(r.Filename()), ir: ir}, nil
 }
