@@ -1,24 +1,10 @@
 package schemaorg
 
-import (
-	"fmt"
-	"io"
-	"net/http"
-	"time"
+import "github.com/jphastings/recipes/utils"
 
-	"github.com/jphastings/recipes/utils"
-)
-
-const (
-	// maxFetchImages caps how many image URLs are downloaded per recipe — a
-	// schema.org "image" value is often the same photo at several aspect ratios.
-	maxFetchImages = 4
-	// maxImageBytes bounds a single download so a stray huge file can't blow up
-	// memory.
-	maxImageBytes = 25 << 20
-)
-
-var imageClient = &http.Client{Timeout: 20 * time.Second}
+// maxFetchImages caps how many image URLs are downloaded per recipe — a
+// schema.org "image" value is often the same photo at several aspect ratios.
+const maxFetchImages = 4
 
 // fetchImages downloads up to maxFetchImages distinct URLs, embedding each as an
 // optimised image. Unreachable, oversized, or non-image URLs are skipped.
@@ -34,31 +20,15 @@ func fetchImages(urls []string) []utils.B64Image {
 		if attempts++; attempts > maxFetchImages {
 			break
 		}
-		if img, err := fetchImage(u); err == nil {
-			imgs = append(imgs, img)
+
+		img, err := utils.FetchImage(u)
+		if err != nil {
+			continue
 		}
+		if opt, changed, err := img.Optimize(); err == nil && changed {
+			img = opt
+		}
+		imgs = append(imgs, img)
 	}
 	return imgs
-}
-
-func fetchImage(url string) (utils.B64Image, error) {
-	resp, err := imageClient.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fetching %s: status %d", url, resp.StatusCode)
-	}
-
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxImageBytes))
-	if err != nil {
-		return nil, err
-	}
-
-	img := utils.B64Image(data)
-	if opt, changed, err := img.Optimize(); err == nil && changed {
-		img = opt
-	}
-	return img, nil
 }

@@ -8,6 +8,8 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -309,5 +311,40 @@ func TestStandardizeBookFromNotes(t *testing.T) {
 				t.Errorf("Book: want %#v, got %#v", tc.wantBook, got)
 			}
 		})
+	}
+}
+
+// TestParseFetchesRemoteImage covers the network-gated image_url fetch: a recipe
+// with only a remote image keeps it unfetched unless network access is allowed.
+func TestParseFetchesRemoteImage(t *testing.T) {
+	pngBytes := onePixelPNG(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(pngBytes)
+	}))
+	defer srv.Close()
+
+	body := `{"uid":"b","name":"Remote","description":"d","ingredients":"i",` +
+		`"directions":"x","image_url":"` + srv.URL + `/photo.png"}`
+	path := writeRecipeFile(t, t.TempDir(), "b.paprikarecipe", body)
+
+	parseOne := func(opts formats.ParseOptions) *paprika.Recipe {
+		t.Helper()
+		pe, _, err := paprika.Parse(formats.Bundle{path}, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		recipes := drain(t, pe)
+		if len(recipes) != 1 {
+			t.Fatalf("expected 1 recipe, got %d", len(recipes))
+		}
+		return recipes[0]
+	}
+
+	if off := parseOne(formats.ParseOptions{}); len(off.PhotoData) != 0 {
+		t.Errorf("network off: PhotoData populated (%d bytes), want empty", len(off.PhotoData))
+	}
+	if on := parseOne(formats.ParseOptions{AllowNetwork: true}); len(on.PhotoData) == 0 {
+		t.Error("network on: PhotoData empty, want the fetched image")
 	}
 }
