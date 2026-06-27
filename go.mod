@@ -12,6 +12,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	github.com/yeka/zip v0.0.0-20231116150916-03d6312748a9
+	github.com/yuin/goldmark v1.8.2
 	golang.org/x/image v0.43.0
 	golang.org/x/net v0.56.0
 	golang.org/x/text v0.38.0
