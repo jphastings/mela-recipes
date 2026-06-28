@@ -10,6 +10,7 @@ import (
 	"github.com/jphastings/recipes/crouton"
 	"github.com/jphastings/recipes/epub"
 	"github.com/jphastings/recipes/internal/formats"
+	"github.com/jphastings/recipes/mealmaster"
 	"github.com/jphastings/recipes/mela"
 	"github.com/jphastings/recipes/paprika"
 	"github.com/jphastings/recipes/recipemd"
@@ -26,6 +27,7 @@ func AvailableFormats() []*formats.Format {
 		cooklang.FormatInfo,
 		recipemd.FormatInfo,
 		schemaorg.FormatInfo,
+		mealmaster.FormatInfo,
 	}
 }
 
