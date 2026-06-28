@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/jphastings/recipes/internal/formats"
-	"github.com/jphastings/recipes/internal/ingredients"
 )
 
 const (
@@ -30,7 +29,7 @@ var FormatInfo = &formats.Format{
 			{
 				Field:   "Ingredients",
 				Reason:  "ingredient wording is normalised (eg. '2 tablespoons' becomes '2 tbsp'), and ingredients inlined into steps follow the order their names appear in the instructions",
-				Present: hasLossyIngredientText,
+				Present: hasIngredients,
 			},
 		},
 		// Cooklang -> interchange has nowhere to keep cookware or timers, so their
@@ -48,16 +47,13 @@ var FormatInfo = &formats.Format{
 	Bundle:    bundle,
 }
 
-// hasLossyIngredientText reports whether any ingredient line would not survive
-// the structured parse-then-format round-trip unchanged (eg. "a handful of
-// basil" becomes "1 handful of basil", "2 tablespoons" becomes "2 tbsp").
-func hasLossyIngredientText(ir formats.InterchangeRecipe) bool {
-	for _, tl := range ir.Ingredients {
-		for _, line := range tl.List {
-			iu, err := ingredients.ExtractIngredient(line, 0)
-			if err != nil || ingredients.FormatIngredientUse(iu) != line {
-				return true
-			}
+// hasIngredients reports whether the recipe has any ingredients. Cooklang always
+// re-renders ingredients as inline @markup and orders them by where their names
+// appear in the steps, so any ingredient is subject to that normalisation.
+func hasIngredients(ir formats.InterchangeRecipe) bool {
+	for _, g := range ir.Ingredients {
+		if len(g.Items) > 0 {
+			return true
 		}
 	}
 	return false

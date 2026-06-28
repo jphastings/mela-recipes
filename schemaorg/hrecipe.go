@@ -27,7 +27,7 @@ func hrecipeRecipe(doc *html.Node) (formats.InterchangeRecipe, []string, bool) {
 
 	for _, n := range mfNodes(byClass, "p-ingredient", "ingredient") {
 		if s := cleanText(nodeText(n)); s != "" {
-			ir.Ingredients = appendItem(ir.Ingredients, s)
+			ir.Ingredients = appendIngredient(ir.Ingredients, s)
 		}
 	}
 

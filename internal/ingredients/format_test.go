@@ -59,3 +59,39 @@ func TestFormatIngredientUseReparses(t *testing.T) {
 		})
 	}
 }
+
+// TestExtractNote covers splitting a note from the name (paren preferred, else the
+// first comma) and the normalisation of the comma form to the canonical paren form.
+func TestExtractNote(t *testing.T) {
+	cases := []struct {
+		line, name, note, formatted string
+	}{
+		{"flour (sifted)", "flour", "sifted", "flour (sifted)"},
+		{"1 onion (finely diced)", "onion", "finely diced", "1 onion (finely diced)"},
+		{"onion, diced", "onion", "diced", "onion (diced)"},        // comma normalises to paren
+		{"2 g salt, to taste", "salt", "to taste", "2 g salt (to taste)"},
+		{"plain flour", "plain flour", "", "plain flour"},
+	}
+	for _, c := range cases {
+		t.Run(c.line, func(t *testing.T) {
+			iu, err := ingredients.ExtractIngredient(c.line, 0)
+			require.NoError(t, err)
+			assert.Equal(t, c.name, iu.Ingredient.Name)
+			assert.Equal(t, c.note, iu.Note)
+			assert.Equal(t, c.formatted, ingredients.FormatIngredientUse(iu))
+		})
+	}
+}
+
+// TestUnquantifiedRendersBareName checks an ingredient with no amount renders as
+// just its name (not "1 name"), while an explicit count is kept.
+func TestUnquantifiedRendersBareName(t *testing.T) {
+	bare, err := ingredients.ExtractIngredient("salt", 0)
+	require.NoError(t, err)
+	assert.Nil(t, (*big.Rat)(bare.Quantity.Amount))
+	assert.Equal(t, "salt", ingredients.FormatIngredientUse(bare))
+
+	counted, err := ingredients.ExtractIngredient("2 onions", 0)
+	require.NoError(t, err)
+	assert.Equal(t, "2 onions", ingredients.FormatIngredientUse(counted))
+}

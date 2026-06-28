@@ -33,7 +33,7 @@ func importRecipe(r formats.Recipe) (formats.Recipe, error) {
 		CookingDuration: ptrToMinutes(ir.CookTime),
 	}
 
-	if cr.Ingredients, err = titledListsToIngredients(ir.Ingredients); err != nil {
+	if cr.Ingredients, err = groupsToIngredients(ir.Ingredients); err != nil {
 		return nil, err
 	}
 	if cr.Steps, err = titledListsToSteps(ir.Instructions); err != nil {

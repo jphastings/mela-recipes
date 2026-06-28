@@ -102,17 +102,9 @@ func buildSections(ir formats.InterchangeRecipe) []*cookSection {
 		s := get(tl.Title)
 		s.steps = append(s.steps, tl.List...)
 	}
-	for _, tl := range ir.Ingredients {
-		s := get(tl.Title)
-		for i, line := range tl.List {
-			iu, err := ingredients.ExtractIngredient(line, i)
-			if err != nil {
-				if iu, err = ingredients.NewItem(line, i); err != nil {
-					continue
-				}
-			}
-			s.ingredients = append(s.ingredients, iu)
-		}
+	for _, g := range ir.Ingredients {
+		s := get(g.Title)
+		s.ingredients = append(s.ingredients, g.Items...)
 	}
 	return order
 }
@@ -171,10 +163,16 @@ func renderCookIngredient(iu ingredients.IngredientUse) string {
 		body = amount
 	}
 	name := escapeCook(iu.Ingredient.Name)
-	if body == "" && !strings.ContainsAny(iu.Ingredient.Name, " \t") {
+
+	var note string
+	if iu.Note != "" {
+		note = "(" + escapeCook(iu.Note) + ")"
+	}
+	// A note must hang off a quantity body, so force braces when one is present.
+	if body == "" && note == "" && !strings.ContainsAny(iu.Ingredient.Name, " \t") {
 		return "@" + name
 	}
-	return "@" + name + "{" + body + "}"
+	return "@" + name + "{" + body + "}" + note
 }
 
 type frontmatter struct {

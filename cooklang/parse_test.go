@@ -12,7 +12,7 @@ import (
 func TestMarshalGolden(t *testing.T) {
 	ir := formats.InterchangeRecipe{
 		Title:        "Bread",
-		Ingredients:  []formats.TitledList{{List: []string{"200 g flour"}}},
+		Ingredients:  []formats.IngredientGroup{irGroup("", "200 g flour")},
 		Instructions: []formats.TitledList{{List: []string{"Mix the flour"}}},
 	}
 
@@ -36,7 +36,7 @@ func TestParseFoldsCookwareAndTimers(t *testing.T) {
 	assert.Equal(t, "Boiled Egg", got.Title)
 	assert.Equal(t, []formats.TitledList{
 		{List: []string{"500 ml water", "1 egg"}},
-	}, got.Ingredients)
+	}, ingredientLines(got.Ingredients))
 	assert.Equal(t, []formats.TitledList{
 		{List: []string{
 			"Bring a pan of water to the boil.",

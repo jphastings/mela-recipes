@@ -84,6 +84,28 @@ func canonAmount(a *ingredients.Amount) *ingredients.Amount {
 	return (*ingredients.Amount)(r)
 }
 
+// irGroup builds an interchange ingredient group from free-text lines.
+func irGroup(title string, lines ...string) formats.IngredientGroup {
+	g := formats.IngredientGroup{Title: title}
+	for i, l := range lines {
+		g.Items = append(g.Items, ingredients.ParseOrItem(l, i))
+	}
+	return g
+}
+
+// ingredientLines renders structured groups back to their canonical string lines.
+func ingredientLines(groups []formats.IngredientGroup) []formats.TitledList {
+	var out []formats.TitledList
+	for _, g := range groups {
+		tl := formats.TitledList{Title: g.Title}
+		for _, iu := range g.Items {
+			tl.List = append(tl.List, ingredients.FormatIngredientUse(iu))
+		}
+		out = append(out, tl)
+	}
+	return out
+}
+
 func normalizeIR(ir formats.InterchangeRecipe) formats.InterchangeRecipe {
 	if len(ir.Images) == 0 {
 		ir.Images = nil
@@ -91,6 +113,23 @@ func normalizeIR(ir formats.InterchangeRecipe) formats.InterchangeRecipe {
 	if len(ir.Tags) == 0 {
 		ir.Tags = nil
 	}
+
+	groups := make([]formats.IngredientGroup, len(ir.Ingredients))
+	for i, g := range ir.Ingredients {
+		items := make([]ingredients.IngredientUse, len(g.Items))
+		for j, iu := range g.Items {
+			iu.Order = 0
+			iu.UUID = uuid.UUID{}
+			iu.Ingredient.UUID = uuid.UUID{}
+			iu.Quantity.Amount = canonAmount(iu.Quantity.Amount)
+			items[j] = iu
+		}
+		groups[i] = formats.IngredientGroup{Title: g.Title, Items: items}
+	}
+	if len(groups) == 0 {
+		groups = nil
+	}
+	ir.Ingredients = groups
 	return ir
 }
 
@@ -196,9 +235,9 @@ func TestRoundtripDirectionB(t *testing.T) {
 			Source: formats.Source{Name: "BBC", URI: "https://example.com/soup"},
 			Notes:  "Serve hot",
 			Yield:  "4",
-			Ingredients: []formats.TitledList{
-				{List: []string{"2 tbsp olive oil", "1 onion"}},
-				{Title: "Garnish", List: []string{"1 tbsp basil"}},
+			Ingredients: []formats.IngredientGroup{
+				irGroup("", "2 tbsp olive oil", "1 onion"),
+				irGroup("Garnish", "1 tbsp basil"),
 			},
 			Instructions: []formats.TitledList{
 				{List: []string{"Heat the oil"}},
@@ -212,8 +251,8 @@ func TestRoundtripDirectionB(t *testing.T) {
 			Title:  "Grandma's Pie",
 			Source: formats.Source{Name: "Family Cookbook", URI: "urn:isbn:9781234567897"},
 			Yield:  "6",
-			Ingredients: []formats.TitledList{
-				{List: []string{"500 g flour"}},
+			Ingredients: []formats.IngredientGroup{
+				irGroup("", "500 g flour"),
 			},
 			Instructions: []formats.TitledList{
 				{List: []string{"Bake"}},
@@ -239,7 +278,7 @@ func TestImportTruncatesFreeFormYield(t *testing.T) {
 	ir := formats.InterchangeRecipe{
 		Title:        "x",
 		Yield:        "4-6 servings",
-		Ingredients:  []formats.TitledList{{List: []string{"1 egg"}}},
+		Ingredients:  []formats.IngredientGroup{irGroup("", "1 egg")},
 		Instructions: []formats.TitledList{{List: []string{"Boil"}}},
 	}
 	got, err := importRecipe(ir)
@@ -256,9 +295,9 @@ func TestImportTruncatesFreeFormYield(t *testing.T) {
 func TestUnsectionedItemsAfterSectionMerge(t *testing.T) {
 	ir := formats.InterchangeRecipe{
 		Title: "x",
-		Ingredients: []formats.TitledList{
-			{Title: "Sauce", List: []string{"1 onion"}},
-			{List: []string{"1 egg"}},
+		Ingredients: []formats.IngredientGroup{
+			irGroup("Sauce", "1 onion"),
+			irGroup("", "1 egg"),
 		},
 		Instructions: []formats.TitledList{{List: []string{"Cook"}}},
 	}
@@ -269,7 +308,7 @@ func TestUnsectionedItemsAfterSectionMerge(t *testing.T) {
 
 	assert.Equal(t, []formats.TitledList{
 		{Title: "Sauce", List: []string{"1 onion", "1 egg"}},
-	}, re.Ingredients)
+	}, ingredientLines(re.Ingredients))
 }
 
 // TestCroutonImportLosses checks the programmatic lossiness declaration reports the
@@ -281,19 +320,21 @@ func TestCroutonImportLosses(t *testing.T) {
 		Tags:        []string{"vegan"},
 		PrepTime:    durPtr(10 * time.Minute),
 		Yield:       "4-6 servings",
-		Ingredients: []formats.TitledList{{List: []string{"a handful of basil"}}},
+		Ingredients: []formats.IngredientGroup{irGroup("", "a handful of basil")},
 	}
 
 	var fields []string
 	for _, lf := range FormatInfo.ImportLosses(lossy) {
 		fields = append(fields, lf.Field)
 	}
-	assert.ElementsMatch(t, []string{"Description", "Tags", "PrepTime", "Yield", "Ingredients"}, fields)
+	// Crouton now stores structured ingredients verbatim, so ingredients are no
+	// longer a loss.
+	assert.ElementsMatch(t, []string{"Description", "Tags", "PrepTime", "Yield"}, fields)
 
 	clean := formats.InterchangeRecipe{
 		Title:       "x",
 		Yield:       "4",
-		Ingredients: []formats.TitledList{{List: []string{"2 tbsp sugar"}}},
+		Ingredients: []formats.IngredientGroup{irGroup("", "2 tbsp sugar")},
 	}
 	assert.Empty(t, FormatInfo.ImportLosses(clean))
 
@@ -301,7 +342,7 @@ func TestCroutonImportLosses(t *testing.T) {
 	zeroYield := formats.InterchangeRecipe{
 		Title:       "x",
 		Yield:       "0",
-		Ingredients: []formats.TitledList{{List: []string{"2 tbsp sugar"}}},
+		Ingredients: []formats.IngredientGroup{irGroup("", "2 tbsp sugar")},
 	}
 	var zf []string
 	for _, lf := range FormatInfo.ImportLosses(zeroYield) {

@@ -111,17 +111,18 @@ func parseCook(r io.Reader) (formats.InterchangeRecipe, error) {
 	}
 
 	for _, sec := range secs {
-		var ingLines, instrLines []string
+		var ings []ingredients.IngredientUse
+		var instrLines []string
 		order := 0
 		for _, block := range splitSteps(sec.lines) {
-			instr, ings := parseStep(block, &order)
-			ingLines = append(ingLines, ings...)
+			instr, blockIngs := parseStep(block, &order)
+			ings = append(ings, blockIngs...)
 			if instr != "" {
 				instrLines = append(instrLines, instr)
 			}
 		}
-		if len(ingLines) > 0 {
-			ir.Ingredients = append(ir.Ingredients, formats.TitledList{Title: sec.title, List: ingLines})
+		if len(ings) > 0 {
+			ir.Ingredients = append(ir.Ingredients, formats.IngredientGroup{Title: sec.title, Items: ings})
 		}
 		if len(instrLines) > 0 {
 			ir.Instructions = append(ir.Instructions, formats.TitledList{Title: sec.title, List: instrLines})
@@ -293,6 +294,7 @@ type token struct {
 	name  string
 	qty   string
 	unit  string
+	note  string
 }
 
 // parseStep extracts inline markup from a single step. Ingredients become
@@ -300,7 +302,7 @@ type token struct {
 // timers are rendered to their display text and folded into the prose. A step
 // that is nothing but ingredient markup is treated as a standalone ingredient
 // line and contributes no instruction text.
-func parseStep(text string, order *int) (instruction string, ingLines []string) {
+func parseStep(text string, order *int) (instruction string, ings []ingredients.IngredientUse) {
 	var display, connective strings.Builder
 	ingCount := 0
 
@@ -320,7 +322,8 @@ func parseStep(text string, order *int) (instruction string, ingLines []string) 
 				switch tok.sigil {
 				case '@':
 					if iu, err := ingredients.FromCooklang(tok.qty, tok.unit, tok.name, *order); err == nil {
-						ingLines = append(ingLines, ingredients.FormatIngredientUse(iu))
+						iu.Note = tok.note
+						ings = append(ings, iu)
 						*order++
 						ingCount++
 					}
@@ -341,9 +344,9 @@ func parseStep(text string, order *int) (instruction string, ingLines []string) 
 	}
 
 	if ingCount > 0 && !hasLetterOrDigit(connective.String()) {
-		return "", ingLines
+		return "", ings
 	}
-	return strings.TrimSpace(display.String()), ingLines
+	return strings.TrimSpace(display.String()), ings
 }
 
 // readToken parses a single @/#/~ reference beginning at text[i]. A name is read
@@ -382,9 +385,10 @@ func readToken(text string, i int) (token, int) {
 			} else {
 				tok.qty = strings.TrimSpace(unescapeCook(parts[0]))
 			}
-			// Skip an optional "(preparation)" suffix; it is folded away.
+			// Capture an optional "(preparation)" suffix as the ingredient note.
 			if next < len(text) && text[next] == '(' {
 				if pend := strings.IndexByte(text[next+1:], ')'); pend >= 0 {
+					tok.note = strings.TrimSpace(unescapeCook(text[next+1 : next+1+pend]))
 					next = next + 1 + pend + 1
 				}
 			}

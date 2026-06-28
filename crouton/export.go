@@ -16,7 +16,7 @@ func (r *Recipe) Export() (formats.InterchangeRecipe, error) {
 	if r.Serves != 0 {
 		ir.Yield = strconv.Itoa(int(r.Serves))
 	}
-	ir.Ingredients = ingredientsToTitledLists(r.Ingredients)
+	ir.Ingredients = ingredientsToGroups(r.Ingredients)
 	ir.Instructions = stepsToTitledLists(r.Steps)
 	ir.TotalTime = minutesToPtr(r.Duration)
 	ir.CookTime = minutesToPtr(r.CookingDuration)

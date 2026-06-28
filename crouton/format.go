@@ -40,11 +40,6 @@ var FormatInfo = &formats.Format{
 				Reason:  "Crouton servings are a whole number; extra detail is dropped",
 				Present: func(ir formats.InterchangeRecipe) bool { return isFreeFormYield(ir.Yield) },
 			},
-			{
-				Field:   "Ingredients",
-				Reason:  "Crouton stores structured ingredients; unparseable wording is normalised",
-				Present: hasLossyIngredientText,
-			},
 		},
 	},
 	Extension: recipeExt,

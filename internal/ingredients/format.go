@@ -47,12 +47,41 @@ var fractionGlyphs = map[string]string{
 // markers are not rendered here: callers detect Quantity.Type == SectionMarker and
 // use the ingredient name as a heading instead.
 func FormatIngredientUse(iu IngredientUse) string {
-	parts := []string{renderAmount((*big.Rat)(iu.Quantity.Amount))}
-	if word := unitWords[iu.Quantity.Type]; word != "" {
-		parts = append(parts, word)
+	var parts []string
+	if qty := RenderQuantity(iu); qty != "" {
+		parts = append(parts, qty)
 	}
 	parts = append(parts, iu.Ingredient.Name)
-	return strings.Join(parts, " ")
+	line := strings.Join(parts, " ")
+	if iu.Note != "" {
+		line += " (" + iu.Note + ")"
+	}
+	return line
+}
+
+// RenderQuantity renders the "amount unit" portion of an ingredient (eg. "2 g",
+// "1½", "1 tbsp", "2 cups"). When no amount was given and there is no unit — the
+// shape an unquantified line parses to — it returns "" so callers emit just the
+// name rather than a spurious "1".
+func RenderQuantity(iu IngredientUse) string {
+	amount := (*big.Rat)(iu.Quantity.Amount)
+	word := unitWords[iu.Quantity.Type]
+	switch {
+	case amount == nil && word == "":
+		return ""
+	case word == "":
+		return renderAmount(amount)
+	case amount == nil:
+		return word
+	default:
+		return renderAmount(amount) + " " + word
+	}
+}
+
+// UnitWord returns the canonical short word for a unit ("g", "tbsp", …), or ""
+// for units that aren't rendered (UnitItem, SectionMarker, unknown).
+func UnitWord(u Unit) string {
+	return unitWords[u]
 }
 
 // renderAmount renders r using the most exact form the parser accepts: a whole

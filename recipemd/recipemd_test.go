@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/jphastings/recipes/internal/formats"
+	"github.com/jphastings/recipes/internal/ingredients"
+	"github.com/jphastings/recipes/internal/uuid"
 )
 
 func loadFixture(t *testing.T, name string) formats.InterchangeRecipe {
@@ -30,6 +32,32 @@ func sec(title string, items ...string) formats.TitledList {
 	return formats.TitledList{Title: title, List: items}
 }
 
+func ingGroups(groups ...formats.IngredientGroup) []formats.IngredientGroup { return groups }
+func ingGroup(title string, lines ...string) formats.IngredientGroup {
+	g := formats.IngredientGroup{Title: title}
+	for i, l := range lines {
+		g.Items = append(g.Items, ingredients.ParseOrItem(l, i))
+	}
+	return g
+}
+
+// normIng zeroes the per-use Order and random UUIDs so structured ingredients can
+// be compared on their meaningful fields (amount, unit, name, note).
+func normIng(groups []formats.IngredientGroup) []formats.IngredientGroup {
+	out := make([]formats.IngredientGroup, len(groups))
+	for i, g := range groups {
+		items := make([]ingredients.IngredientUse, len(g.Items))
+		for j, iu := range g.Items {
+			iu.Order = 0
+			iu.UUID = uuid.UUID{}
+			iu.Ingredient.UUID = uuid.UUID{}
+			items[j] = iu
+		}
+		out[i] = formats.IngredientGroup{Title: g.Title, Items: items}
+	}
+	return out
+}
+
 func TestParseSimple(t *testing.T) {
 	ir := loadFixture(t, "simple.md")
 
@@ -46,8 +74,8 @@ func TestParseSimple(t *testing.T) {
 		t.Errorf("Yield = %q", ir.Yield)
 	}
 
-	wantIng := sections(sec("", "2 cups flour", "2 eggs", "1 1/2 cups milk"))
-	if !reflect.DeepEqual(ir.Ingredients, wantIng) {
+	wantIng := ingGroups(ingGroup("", "2 cups flour", "2 eggs", "1 1/2 cups milk"))
+	if !reflect.DeepEqual(normIng(ir.Ingredients), normIng(wantIng)) {
 		t.Errorf("Ingredients = %#v", ir.Ingredients)
 	}
 	wantSteps := sections(sec("", "Mix the dry ingredients.", "Whisk in the eggs and milk.", "Cook on a hot, greased griddle."))
@@ -69,11 +97,11 @@ func TestParseGrouped(t *testing.T) {
 		t.Errorf("Yield = %q", ir.Yield)
 	}
 
-	wantIng := sections(
-		sec("", "200 g sponge fingers"),
-		sec("Custard", "500 ml milk", "4 egg yolks"),
+	wantIng := ingGroups(
+		ingGroup("", "200 g sponge fingers"),
+		ingGroup("Custard", "500 ml milk", "4 egg yolks"),
 	)
-	if !reflect.DeepEqual(ir.Ingredients, wantIng) {
+	if !reflect.DeepEqual(normIng(ir.Ingredients), normIng(wantIng)) {
 		t.Errorf("Ingredients = %#v", ir.Ingredients)
 	}
 	wantSteps := sections(
@@ -91,9 +119,9 @@ func TestRoundTrip(t *testing.T) {
 	ir.Description = "A small test recipe."
 	ir.Tags = []string{"test", "sample"}
 	ir.Yield = "4 servings"
-	ir.Ingredients = sections(
-		sec("", "2 cups flour", "1 egg"),
-		sec("Sauce", "200 ml cream"),
+	ir.Ingredients = ingGroups(
+		ingGroup("", "2 cups flour", "1 egg", "1 onion (diced)"),
+		ingGroup("Sauce", "200 ml cream"),
 	)
 	ir.Instructions = sections(
 		sec("", "Mix everything together.", "Bake until golden."),
@@ -123,12 +151,15 @@ func TestRoundTrip(t *testing.T) {
 		{"Description", got.Description, ir.Description},
 		{"Tags", got.Tags, ir.Tags},
 		{"Yield", got.Yield, ir.Yield},
-		{"Ingredients", got.Ingredients, ir.Ingredients},
 		{"Instructions", got.Instructions, ir.Instructions},
 	} {
 		if !reflect.DeepEqual(c.got, c.want) {
 			t.Errorf("%s round-tripped to %#v, want %#v\n--- markdown ---\n%s", c.name, c.got, c.want, buf.String())
 		}
+	}
+
+	if !reflect.DeepEqual(normIng(got.Ingredients), normIng(ir.Ingredients)) {
+		t.Errorf("Ingredients round-tripped to %#v, want %#v\n--- markdown ---\n%s", got.Ingredients, ir.Ingredients, buf.String())
 	}
 }
 

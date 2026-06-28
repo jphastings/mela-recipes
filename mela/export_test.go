@@ -6,8 +6,23 @@ import (
 	"time"
 
 	"github.com/jphastings/recipes/internal/formats"
+	"github.com/jphastings/recipes/internal/ingredients"
 	"github.com/jphastings/recipes/mela"
 )
+
+// ingredientLines renders structured ingredient groups back to their canonical
+// string lines, so tests can assert on readable text without the per-item UUIDs.
+func ingredientLines(groups []formats.IngredientGroup) []formats.TitledList {
+	out := make([]formats.TitledList, 0, len(groups))
+	for _, g := range groups {
+		tl := formats.TitledList{Title: g.Title}
+		for _, iu := range g.Items {
+			tl.List = append(tl.List, ingredients.FormatIngredientUse(iu))
+		}
+		out = append(out, tl)
+	}
+	return out
+}
 
 func TestExport(t *testing.T) {
 	events, err := mela.ParseRecipeFile("fixtures/a.melarecipe")
@@ -35,8 +50,8 @@ func TestExport(t *testing.T) {
 	}
 
 	wantIngredients := []formats.TitledList{{Title: "", List: []string{"A ingredients"}}}
-	if !reflect.DeepEqual(ir.Ingredients, wantIngredients) {
-		t.Errorf("Ingredients: want %v, got %v", wantIngredients, ir.Ingredients)
+	if got := ingredientLines(ir.Ingredients); !reflect.DeepEqual(got, wantIngredients) {
+		t.Errorf("Ingredients: want %v, got %v", wantIngredients, got)
 	}
 
 	if ir.PrepTime == nil || *ir.PrepTime != time.Minute {
@@ -66,7 +81,7 @@ func TestExportSections(t *testing.T) {
 		{Title: "", List: []string{"Base item"}},
 		{Title: "Sauce", List: []string{"Butter", "Flour"}},
 	}
-	if !reflect.DeepEqual(ir.Ingredients, want) {
-		t.Errorf("Ingredients: want %#v, got %#v", want, ir.Ingredients)
+	if got := ingredientLines(ir.Ingredients); !reflect.DeepEqual(got, want) {
+		t.Errorf("Ingredients: want %#v, got %#v", want, got)
 	}
 }

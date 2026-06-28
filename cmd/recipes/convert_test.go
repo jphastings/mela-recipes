@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/jphastings/recipes/internal/formats"
+	"github.com/jphastings/recipes/internal/ingredients"
 	"github.com/jphastings/recipes/recipemd"
 	"github.com/spf13/cobra"
 )
@@ -24,7 +25,7 @@ func feed(recipes ...formats.Recipe) <-chan formats.ParseEvent {
 func testRecipe(title string) formats.InterchangeRecipe {
 	ir := formats.NewInterchangeRecipe()
 	ir.Title = title
-	ir.Ingredients = []formats.TitledList{{List: []string{"1 egg"}}}
+	ir.Ingredients = []formats.IngredientGroup{{Items: []ingredients.IngredientUse{ingredients.ParseOrItem("1 egg", 0)}}}
 	ir.Instructions = []formats.TitledList{{List: []string{"Cook it."}}}
 	return ir
 }
@@ -52,7 +53,7 @@ func TestMakeRecipesWritesEachRecipe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading converted recipe: %v", err)
 	}
-	for _, want := range []string{"# Test Recipe", "- 1 egg", "1. Cook it."} {
+	for _, want := range []string{"# Test Recipe", "- *1* egg", "1. Cook it."} {
 		if !strings.Contains(string(data), want) {
 			t.Errorf("output is missing %q:\n%s", want, data)
 		}

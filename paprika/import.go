@@ -36,7 +36,7 @@ func ImportRecipe(r formats.Recipe) (formats.Recipe, error) {
 		// TODO: Source / SourceURL
 		Description: ir.Description,
 		Notes:       ir.Notes,
-		Ingredients: formats.TitledListsToSectioned(ir.Ingredients),
+		Ingredients: formats.IngredientsToSectioned(ir.Ingredients),
 		Directions:  formats.TitledListsToSectioned(ir.Instructions),
 		Servings:    ir.Yield,
 		Categories:  importTags(ir.Tags),

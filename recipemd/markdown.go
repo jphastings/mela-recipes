@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/jphastings/recipes/internal/formats"
+	"github.com/jphastings/recipes/internal/ingredients"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"
@@ -43,8 +44,8 @@ func parseRecipe(source []byte) (formats.InterchangeRecipe, error) {
 
 	ir := formats.NewInterchangeRecipe()
 	parseHead(blocks[:breaks[0]], source, &ir)
-	ir.Ingredients = parseGroupedList(blocks[breaks[0]+1:breaks[1]], source, true)
-	ir.Instructions = parseGroupedList(blocks[breaks[1]+1:], source, false)
+	ir.Ingredients = parseIngredientGroups(blocks[breaks[0]+1:breaks[1]], source)
+	ir.Instructions = parseInstructionGroups(blocks[breaks[1]+1:], source)
 
 	if ir.Title == "" {
 		return formats.InterchangeRecipe{}, errNotRecipeMD
@@ -104,11 +105,10 @@ func metadataParagraph(p *ast.Paragraph, source []byte) (tags []string, yield st
 	return tags, yield, len(tags) > 0 || yield != ""
 }
 
-// parseGroupedList turns the blocks of an ingredient or instruction zone into
-// titled sections. `##`/`###` headers start a new section; ungrouped items land
-// in a leading untitled section. Ingredient items come from list items only;
-// instruction steps come from list items and paragraphs.
-func parseGroupedList(blocks []ast.Node, source []byte, ingredients bool) []formats.TitledList {
+// parseInstructionGroups turns the instruction zone into titled sections.
+// `##`/`###` headers start a new section; steps come from list items and
+// paragraphs.
+func parseInstructionGroups(blocks []ast.Node, source []byte) []formats.TitledList {
 	var sections []formats.TitledList
 	cur := formats.TitledList{}
 	flush := func() {
@@ -129,15 +129,43 @@ func parseGroupedList(blocks []ast.Node, source []byte, ingredients bool) []form
 				}
 			}
 		case *ast.Paragraph:
-			if !ingredients {
-				if step := strings.TrimSpace(nodeText(n, source)); step != "" {
-					cur.List = append(cur.List, step)
-				}
+			if step := strings.TrimSpace(nodeText(n, source)); step != "" {
+				cur.List = append(cur.List, step)
 			}
 		}
 	}
 	flush()
 	return sections
+}
+
+// parseIngredientGroups turns the ingredient zone into structured groups. Each
+// list item is parsed into an IngredientUse (the italic *amount* markup is
+// stripped by nodeText, leaving a plain ingredient line). `##`/`###` headers
+// start a new section; ungrouped items land in a leading untitled section.
+func parseIngredientGroups(blocks []ast.Node, source []byte) []formats.IngredientGroup {
+	var groups []formats.IngredientGroup
+	cur := formats.IngredientGroup{}
+	flush := func() {
+		if len(cur.Items) > 0 {
+			groups = append(groups, cur)
+		}
+	}
+
+	for _, b := range blocks {
+		switch n := b.(type) {
+		case *ast.Heading:
+			flush()
+			cur = formats.IngredientGroup{Title: strings.TrimSpace(nodeText(n, source))}
+		case *ast.List:
+			for li := n.FirstChild(); li != nil; li = li.NextSibling() {
+				if item := strings.TrimSpace(nodeText(li, source)); item != "" {
+					cur.Items = append(cur.Items, ingredients.ParseOrItem(item, len(cur.Items)))
+				}
+			}
+		}
+	}
+	flush()
+	return groups
 }
 
 // splitList splits a comma-separated string into trimmed, non-empty parts.

@@ -241,10 +241,10 @@ func TestImageFetching(t *testing.T) {
 	}
 }
 
-func countItems(lists []formats.TitledList) int {
+func countItems(groups []formats.IngredientGroup) int {
 	n := 0
-	for _, l := range lists {
-		n += len(l.List)
+	for _, g := range groups {
+		n += len(g.Items)
 	}
 	return n
 }

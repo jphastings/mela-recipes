@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/jphastings/recipes/internal/uuid"
 )
@@ -14,6 +15,7 @@ type IngredientUse struct {
 	UUID       uuid.UUID  `json:"uuid"`
 	Quantity   Quantity   `json:"quantity"`
 	Ingredient Ingredient `json:"ingredient"`
+	Note       string     `json:"note,omitempty"`
 }
 
 type Ingredient struct {
@@ -109,7 +111,7 @@ func NewItem(name string, order int) (IngredientUse, error) {
 	return IngredientUse{
 		Order:      order,
 		UUID:       iuUUID,
-		Quantity:   Quantity{Amount: (*Amount)(big.NewRat(1, 1)), Type: UnitItem},
+		Quantity:   Quantity{Type: UnitItem},
 		Ingredient: Ingredient{Name: name, UUID: ingUUID},
 	}, nil
 }
@@ -130,17 +132,16 @@ func ExtractIngredient(ingredientLine string, order int) (IngredientUse, error) 
 		return IngredientUse{}, err
 	}
 
-	amount, ok := parts[0].(*big.Rat)
-	if !ok {
-		amount = big.NewRat(1, 1)
-	}
+	// A missing amount stays nil (rather than defaulting to 1) so renderers can
+	// tell "salt" from "1 onion".
+	amount, _ := parts[0].(*big.Rat)
 
 	unit, ok := parts[1].(Unit)
 	if !ok {
 		unit = UnitItem
 	}
 
-	name := parts[2].(string)
+	name, note := splitNote(parts[2].(string))
 	ingUUID, err := uuid.NewUUID(name)
 	if err != nil {
 		return IngredientUse{}, err
@@ -157,5 +158,47 @@ func ExtractIngredient(ingredientLine string, order int) (IngredientUse, error) 
 			Name: name,
 			UUID: ingUUID,
 		},
+		Note: note,
 	}, nil
+}
+
+// ParseOrItem parses an ingredient line into a structured IngredientUse, falling
+// back to a plain whole-line item when the line can't be parsed. It is the
+// standard way for a format to turn one free-text ingredient line into structure.
+func ParseOrItem(line string, order int) IngredientUse {
+	if iu, err := ExtractIngredient(line, order); err == nil {
+		return iu
+	}
+	iu, _ := NewItem(line, order)
+	return iu
+}
+
+// splitNote separates a trailing note from an ingredient name. A trailing
+// parenthetical is preferred, otherwise the first comma splits name from note:
+//
+//	"onion (finely diced)" -> "onion", "finely diced"
+//	"onion, finely diced"  -> "onion", "finely diced"
+//	"plain flour"          -> "plain flour", ""
+func splitNote(name string) (string, string) {
+	s := strings.TrimSpace(name)
+
+	if strings.HasSuffix(s, ")") {
+		if open := strings.LastIndexByte(s[:len(s)-1], '('); open >= 0 {
+			base := strings.TrimSpace(s[:open])
+			note := strings.TrimSpace(s[open+1 : len(s)-1])
+			if base != "" && note != "" {
+				return base, note
+			}
+		}
+	}
+
+	if i := strings.IndexByte(s, ','); i >= 0 {
+		base := strings.TrimSpace(s[:i])
+		note := strings.TrimSpace(s[i+1:])
+		if base != "" && note != "" {
+			return base, note
+		}
+	}
+
+	return s, ""
 }

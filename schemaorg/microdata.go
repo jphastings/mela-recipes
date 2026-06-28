@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/jphastings/recipes/internal/formats"
+	"github.com/jphastings/recipes/internal/ingredients"
 	"golang.org/x/net/html"
 )
 
@@ -74,7 +75,7 @@ func buildFromProps(props map[string][]*html.Node) (formats.InterchangeRecipe, [
 
 	for _, n := range propNodes(props, "recipeIngredient", "ingredients") {
 		if s := propText(n); s != "" {
-			ir.Ingredients = appendItem(ir.Ingredients, s)
+			ir.Ingredients = appendIngredient(ir.Ingredients, s)
 		}
 	}
 
@@ -189,10 +190,10 @@ func firstPropRaw(props map[string][]*html.Node, key string) string {
 	return ""
 }
 
-func appendItem(lists []formats.TitledList, item string) []formats.TitledList {
-	if len(lists) == 0 {
-		return []formats.TitledList{{List: []string{item}}}
+func appendIngredient(groups []formats.IngredientGroup, line string) []formats.IngredientGroup {
+	if len(groups) == 0 {
+		groups = []formats.IngredientGroup{{}}
 	}
-	lists[0].List = append(lists[0].List, item)
-	return lists
+	groups[0].Items = append(groups[0].Items, ingredients.ParseOrItem(line, len(groups[0].Items)))
+	return groups
 }

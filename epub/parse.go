@@ -19,6 +19,7 @@ import (
 	"github.com/jphastings/recipes/epub/induce"
 	"github.com/jphastings/recipes/epub/induce/modellabel"
 	"github.com/jphastings/recipes/internal/formats"
+	"github.com/jphastings/recipes/internal/ingredients"
 	"github.com/jphastings/recipes/utils"
 	"github.com/pirmd/epub"
 )
@@ -351,7 +352,11 @@ func toInterchange(r induce.Recipe, e *epub.Epub, filt photoFilter) formats.Reci
 	ir.Description = desc
 
 	for _, s := range r.Ingredients {
-		ir.Ingredients = append(ir.Ingredients, formats.TitledList{Title: s.Title, List: s.Items})
+		g := formats.IngredientGroup{Title: s.Title}
+		for i, item := range s.Items {
+			g.Items = append(g.Items, ingredients.ParseOrItem(item, i))
+		}
+		ir.Ingredients = append(ir.Ingredients, g)
 	}
 	for _, s := range r.Steps {
 		ir.Instructions = append(ir.Instructions, formats.TitledList{Title: s.Title, List: s.Items})

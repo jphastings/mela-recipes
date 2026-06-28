@@ -5,6 +5,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/jphastings/recipes/internal/ingredients"
 	"github.com/jphastings/recipes/internal/standardize"
 	"github.com/jphastings/recipes/utils"
 )
@@ -39,7 +40,7 @@ type InterchangeRecipe struct {
 	Title        string
 	Description  string
 	Yield        string
-	Ingredients  []TitledList
+	Ingredients  []IngredientGroup
 	Instructions []TitledList
 	Notes        string
 	Source       Source
@@ -63,6 +64,13 @@ func NewInterchangeRecipe() InterchangeRecipe {
 type TitledList struct {
 	Title string
 	List  []string
+}
+
+// IngredientGroup is a titled section of structured ingredients. Items before
+// the first heading live under the empty-string Title.
+type IngredientGroup struct {
+	Title string
+	Items []ingredients.IngredientUse
 }
 
 // Source describes where a recipe came from. URI may be a web address
@@ -91,7 +99,11 @@ func (r InterchangeRecipe) Validate() []error {
 		errs = append(errs, fmt.Errorf("recipe has no title"))
 	}
 
-	if len(r.Ingredients) == 0 {
+	items := 0
+	for _, g := range r.Ingredients {
+		items += len(g.Items)
+	}
+	if items == 0 {
 		errs = append(errs, fmt.Errorf("recipe has no ingredients"))
 	}
 

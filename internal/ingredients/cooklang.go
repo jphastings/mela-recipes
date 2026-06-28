@@ -33,10 +33,10 @@ func CooklangQuantity(iu IngredientUse) (amount, unit string) {
 // FromCooklang builds an IngredientUse from the parts of a Cooklang ingredient
 // reference — the quantity amount ("500", "½", "3½", or "" for none), the unit
 // token ("g", "tbsp", or "" for none), and the name. It is the parse-side inverse
-// of CooklangQuantity: an unparseable amount falls back to 1, and an unrecognised
-// unit word is folded into the name so no authored text is silently dropped.
+// of CooklangQuantity: a missing or unparseable amount is left unset (nil), and an
+// unrecognised unit word is folded into the name so no authored text is dropped.
 func FromCooklang(amount, unit, name string, order int) (IngredientUse, error) {
-	amt := big.NewRat(1, 1)
+	var amt *big.Rat
 	if amount != "" {
 		if probe, err := ExtractIngredient(amount+" x", 0); err == nil && probe.Quantity.Amount != nil {
 			amt = (*big.Rat)(probe.Quantity.Amount)

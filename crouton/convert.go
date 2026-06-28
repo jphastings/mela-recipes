@@ -21,18 +21,25 @@ import (
 // the unsectioned group first, so this only affects such hand-built interchange
 // recipes (outside the Crouton-representable subset).
 
-func ingredientsToTitledLists(ius []ingredients.IngredientUse) []formats.TitledList {
-	var lists []formats.TitledList
-	cur := formats.TitledList{}
+func ingredientsToGroups(ius []ingredients.IngredientUse) []formats.IngredientGroup {
+	var groups []formats.IngredientGroup
+	cur := formats.IngredientGroup{}
 	for _, iu := range ius {
 		if iu.Quantity.Type == ingredients.SectionMarker {
-			lists = appendIfNonEmpty(lists, cur)
-			cur = formats.TitledList{Title: iu.Ingredient.Name}
+			groups = appendGroupIfNonEmpty(groups, cur)
+			cur = formats.IngredientGroup{Title: iu.Ingredient.Name}
 			continue
 		}
-		cur.List = append(cur.List, ingredients.FormatIngredientUse(iu))
+		cur.Items = append(cur.Items, iu) // carried verbatim (UUIDs, note kept)
 	}
-	return appendIfNonEmpty(lists, cur)
+	return appendGroupIfNonEmpty(groups, cur)
+}
+
+func appendGroupIfNonEmpty(groups []formats.IngredientGroup, g formats.IngredientGroup) []formats.IngredientGroup {
+	if g.Title != "" || len(g.Items) > 0 {
+		return append(groups, g)
+	}
+	return groups
 }
 
 func stepsToTitledLists(steps Steps) []formats.TitledList {
@@ -58,25 +65,20 @@ func appendIfNonEmpty(lists []formats.TitledList, tl formats.TitledList) []forma
 	return lists
 }
 
-func titledListsToIngredients(tls []formats.TitledList) ([]ingredients.IngredientUse, error) {
+func groupsToIngredients(groups []formats.IngredientGroup) ([]ingredients.IngredientUse, error) {
 	var out []ingredients.IngredientUse
 	order := 0
-	for _, tl := range tls {
-		if tl.Title != "" {
-			sec, err := ingredients.NewSection(tl.Title, order)
+	for _, g := range groups {
+		if g.Title != "" {
+			sec, err := ingredients.NewSection(g.Title, order)
 			if err != nil {
 				return nil, err
 			}
 			out = append(out, sec)
 			order++
 		}
-		for _, line := range tl.List {
-			iu, err := ingredients.ExtractIngredient(line, order)
-			if err != nil {
-				if iu, err = ingredients.NewItem(line, order); err != nil {
-					return nil, err
-				}
-			}
+		for _, iu := range g.Items {
+			iu.Order = order // carried verbatim; only the order is re-derived
 			out = append(out, iu)
 			order++
 		}
@@ -150,17 +152,3 @@ func isFreeFormYield(y string) bool {
 	return n == 0 || strconv.Itoa(n) != y
 }
 
-// hasLossyIngredientText reports whether any ingredient line would not survive
-// crouton's structured parse-then-format round-trip unchanged (e.g. "a handful of
-// basil" becomes "1 handful of basil", "2 tablespoons" becomes "2 tbsp").
-func hasLossyIngredientText(ir formats.InterchangeRecipe) bool {
-	for _, tl := range ir.Ingredients {
-		for _, line := range tl.List {
-			iu, err := ingredients.ExtractIngredient(line, 0)
-			if err != nil || ingredients.FormatIngredientUse(iu) != line {
-				return true
-			}
-		}
-	}
-	return false
-}

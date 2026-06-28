@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/jphastings/recipes/internal/formats"
+	"github.com/jphastings/recipes/internal/ingredients"
 )
 
 // mapSchemaNode converts a decoded schema.org Recipe node into the interchange
@@ -17,12 +18,16 @@ func mapSchemaNode(node map[string]any) (formats.InterchangeRecipe, []string) {
 	ir.Description = text(node["description"])
 	ir.Yield = text(node["recipeYield"])
 
-	ingredients := node["recipeIngredient"]
-	if ingredients == nil {
-		ingredients = node["ingredients"] // legacy property name
+	ingList := node["recipeIngredient"]
+	if ingList == nil {
+		ingList = node["ingredients"] // legacy property name
 	}
-	if items := textList(ingredients); len(items) > 0 {
-		ir.Ingredients = []formats.TitledList{{List: items}}
+	if items := textList(ingList); len(items) > 0 {
+		g := formats.IngredientGroup{}
+		for i, s := range items {
+			g.Items = append(g.Items, ingredients.ParseOrItem(s, i))
+		}
+		ir.Ingredients = []formats.IngredientGroup{g}
 	}
 
 	ir.Instructions = mapInstructions(node["recipeInstructions"])

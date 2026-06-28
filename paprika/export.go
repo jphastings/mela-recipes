@@ -17,7 +17,7 @@ func (r *Recipe) Export() (formats.InterchangeRecipe, error) {
 	ir.Description = r.Description
 	ir.Notes = r.Notes
 	ir.Yield = r.Servings
-	ir.Ingredients = formats.SectionedToTitledLists(r.Ingredients)
+	ir.Ingredients = formats.SectionedToIngredientGroups(r.Ingredients)
 	ir.Instructions = formats.SectionedToTitledLists(r.Directions)
 
 	if r.Categories != nil {
