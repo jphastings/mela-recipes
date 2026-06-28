@@ -12,7 +12,38 @@ import (
 // up memory.
 const maxFetchBytes = 25 << 20
 
+// maxFetchImages caps how many image URLs are downloaded per recipe — a source
+// often lists the same photo at several aspect ratios.
+const maxFetchImages = 4
+
 var fetchClient = &http.Client{Timeout: 20 * time.Second}
+
+// FetchImages downloads up to maxFetchImages distinct URLs, embedding each as an
+// optimised image. Unreachable, oversized, or non-image URLs are skipped.
+func FetchImages(urls []string) []B64Image {
+	var imgs []B64Image
+	seen := make(map[string]bool, len(urls))
+	attempts := 0
+	for _, u := range urls {
+		if seen[u] {
+			continue
+		}
+		seen[u] = true
+		if attempts++; attempts > maxFetchImages {
+			break
+		}
+
+		img, err := FetchImage(u)
+		if err != nil {
+			continue
+		}
+		if opt, changed, err := img.Optimize(); err == nil && changed {
+			img = opt
+		}
+		imgs = append(imgs, img)
+	}
+	return imgs
+}
 
 // FetchImage downloads an image from url and returns its raw bytes. The download
 // is time-limited, size-limited, and rejected if the server reports a non-image

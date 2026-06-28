@@ -6,6 +6,7 @@ import (
 
 	"github.com/jphastings/recipes/internal/formats"
 	"github.com/jphastings/recipes/internal/ingredients"
+	"github.com/jphastings/recipes/utils"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"
@@ -21,7 +22,7 @@ var errNotRecipeMD = errors.New("not a RecipeMD document (needs an H1 title and 
 // A RecipeMD document is three zones separated by the first two thematic breaks:
 // a head (title, description, tags, yield), an ingredient list, and free-form
 // instructions.
-func parseRecipe(source []byte) (formats.InterchangeRecipe, error) {
+func parseRecipe(source []byte, allowNetwork bool) (formats.InterchangeRecipe, error) {
 	doc := goldmark.DefaultParser().Parse(text.NewReader(source))
 
 	var blocks []ast.Node
@@ -46,11 +47,44 @@ func parseRecipe(source []byte) (formats.InterchangeRecipe, error) {
 	parseHead(blocks[:breaks[0]], source, &ir)
 	ir.Ingredients = parseIngredientGroups(blocks[breaks[0]+1:breaks[1]], source)
 	ir.Instructions = parseInstructionGroups(blocks[breaks[1]+1:], source)
+	ir.Images = collectImages(doc, allowNetwork)
 
 	if ir.Title == "" {
 		return formats.InterchangeRecipe{}, errNotRecipeMD
 	}
 	return ir, nil
+}
+
+// collectImages walks the whole document for image references. Embedded "data:"
+// URLs are decoded offline; "http(s)" URLs are fetched only when the caller
+// permits network access. Other destinations are skipped.
+func collectImages(doc ast.Node, allowNetwork bool) []utils.B64Image {
+	var embedded []utils.B64Image
+	var remote []string
+	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		img, ok := n.(*ast.Image)
+		if !ok {
+			return ast.WalkContinue, nil
+		}
+		dest := string(img.Destination)
+		if data, ok := utils.DecodeDataURL(dest); ok {
+			embedded = append(embedded, data)
+		} else if strings.HasPrefix(dest, "http://") || strings.HasPrefix(dest, "https://") {
+			remote = append(remote, dest)
+		}
+		return ast.WalkContinue, nil
+	})
+
+	if allowNetwork {
+		embedded = append(embedded, utils.FetchImages(remote)...)
+	}
+	if len(embedded) == 0 {
+		return nil
+	}
+	return embedded
 }
 
 // parseHead reads the title (first H1), description paragraphs, and the tag /

@@ -20,7 +20,7 @@ func loadFixture(t *testing.T, name string) formats.InterchangeRecipe {
 	if err != nil {
 		t.Fatalf("read %s: %v", name, err)
 	}
-	ir, err := parseRecipe(data)
+	ir, err := parseRecipe(data, false)
 	if err != nil {
 		t.Fatalf("parseRecipe(%s): %v", name, err)
 	}
@@ -138,7 +138,7 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("Marshal: %v", err)
 	}
 
-	got, err := parseRecipe(buf.Bytes())
+	got, err := parseRecipe(buf.Bytes(), false)
 	if err != nil {
 		t.Fatalf("parseRecipe after Marshal: %v\n---\n%s", err, buf.String())
 	}
@@ -171,7 +171,7 @@ func TestParseRejectsNonRecipeMD(t *testing.T) {
 	}
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {
-			if _, err := parseRecipe([]byte(src)); !errors.Is(err, errNotRecipeMD) {
+			if _, err := parseRecipe([]byte(src), false); !errors.Is(err, errNotRecipeMD) {
 				t.Errorf("got %v, want errNotRecipeMD", err)
 			}
 		})

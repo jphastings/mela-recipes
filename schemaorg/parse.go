@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/jphastings/recipes/internal/formats"
+	"github.com/jphastings/recipes/utils"
 	"golang.org/x/net/html"
 )
 
@@ -46,7 +47,7 @@ func extractRecipe(data []byte, ext string, allowNetwork bool) (formats.Intercha
 		return formats.InterchangeRecipe{}, err
 	}
 	if allowNetwork {
-		if imgs := fetchImages(imageURLs); len(imgs) > 0 {
+		if imgs := utils.FetchImages(imageURLs); len(imgs) > 0 {
 			ir.Images = imgs
 		}
 	}

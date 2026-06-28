@@ -26,6 +26,9 @@ func writeMarkdown(w io.Writer, ir formats.InterchangeRecipe) error {
 	if ir.Yield != "" {
 		fmt.Fprintf(&b, "\n**%s**\n", ir.Yield)
 	}
+	for _, img := range ir.Images {
+		fmt.Fprintf(&b, "\n![](%s)\n", img.DataURL())
+	}
 
 	b.WriteString("\n---\n")
 	writeIngredients(&b, ir.Ingredients)
