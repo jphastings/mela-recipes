@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<recipeml version="0.5">
+  <recipe>
+    <head>
+      <title>Chocolate Chip Cookies</title>
+      <categories><cat>Dessert</cat><cat>Cookies</cat></categories>
+      <yield><range><q>24</q></range> cookies</yield>
+    </head>
+    <ingredients>
+      <ing><amt><qty>2</qty><unit>cup</unit></amt><item>flour</item></ing>
+      <ing><amt><qty>1/2</qty><unit>tsp</unit></amt><item>salt</item><prep>sifted</prep></ing>
+      <ing><amt><qty>1</qty><unit>cup</unit></amt><item>butter</item><modifier>softened</modifier></ing>
+      <ing><amt><qty>2</qty></amt><item>eggs</item></ing>
+    </ingredients>
+    <directions>
+      <step>Cream the butter and sugar.</step>
+      <step>Bake at <temp>375</temp>F for 10 minutes.</step>
+    </directions>
+    <description>Classic cookies.</description>
+    <note>Best fresh.</note>
+  </recipe>
+</recipeml>

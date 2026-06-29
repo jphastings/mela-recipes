@@ -14,6 +14,7 @@ import (
 	"github.com/jphastings/recipes/mela"
 	"github.com/jphastings/recipes/paprika"
 	"github.com/jphastings/recipes/recipemd"
+	"github.com/jphastings/recipes/recipeml"
 	"github.com/jphastings/recipes/schemaorg"
 )
 
@@ -28,6 +29,7 @@ func AvailableFormats() []*formats.Format {
 		recipemd.FormatInfo,
 		schemaorg.FormatInfo,
 		mealmaster.FormatInfo,
+		recipeml.FormatInfo,
 	}
 }
 

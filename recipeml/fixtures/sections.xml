@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<recipeml version="0.5">
+  <recipe>
+    <head>
+      <title>Layer Cake</title>
+      <categories><cat>Dessert</cat></categories>
+      <yield><range><q>1</q></range> cake</yield>
+    </head>
+    <ingredients>
+      <ing-div title="Sponge">
+        <ing><amt><qty>2</qty><unit>cup</unit></amt><item>flour</item></ing>
+        <ing><amt><qty>3</qty></amt><item>eggs</item></ing>
+      </ing-div>
+      <ing-div title="Icing">
+        <ing><amt><qty>2</qty><unit>cup</unit></amt><item>icing sugar</item></ing>
+      </ing-div>
+    </ingredients>
+    <directions>
+      <step>Bake the sponge.</step>
+      <step>Spread with icing.</step>
+    </directions>
+  </recipe>
+</recipeml>
