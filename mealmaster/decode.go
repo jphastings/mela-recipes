@@ -2,7 +2,6 @@ package mealmaster
 
 import (
 	"errors"
-	"math/big"
 	"regexp"
 	"strings"
 
@@ -209,7 +208,7 @@ func twoColumn(line string) (left, right string, ok bool) {
 // into a structured ingredient.
 func buildIngredient(amount, unit, text string, order int) ingredients.IngredientUse {
 	var parts []string
-	if a := normalizeAmount(amount); a != "" {
+	if a := ingredients.NormalizeAmount(amount); a != "" {
 		parts = append(parts, a)
 	}
 	if u := expandUnit(unit); u != "" {
@@ -254,64 +253,6 @@ func collectDirections(lines []string) []string {
 	flush()
 
 	return paragraphs
-}
-
-var fractionGlyphs = map[string]string{
-	"1/2": "½", "1/3": "⅓", "2/3": "⅔", "1/4": "¼", "3/4": "¾",
-	"1/8": "⅛", "3/8": "⅜", "5/8": "⅝", "7/8": "⅞",
-}
-
-// normalizeAmount converts a MealMaster amount ("1 1/2", "3/4", "2", "3.5") into
-// a form the ingredient grammar accepts: ASCII fractions become unicode glyphs
-// where possible, mixed numbers fold into a single glyph or a decimal, and plain
-// integers/decimals pass through.
-func normalizeAmount(raw string) string {
-	fields := strings.Fields(raw)
-	switch len(fields) {
-	case 0:
-		return ""
-	case 1:
-		return convertFraction(fields[0])
-	case 2:
-		if glyph, ok := fractionGlyphs[fields[1]]; ok && isInteger(fields[0]) {
-			return fields[0] + glyph
-		}
-		if whole, ok := new(big.Rat).SetString(fields[0]); ok {
-			if frac, ok := new(big.Rat).SetString(fields[1]); ok {
-				return ratDecimal(new(big.Rat).Add(whole, frac))
-			}
-		}
-	}
-	return raw
-}
-
-func convertFraction(t string) string {
-	if glyph, ok := fractionGlyphs[t]; ok {
-		return glyph
-	}
-	if strings.ContainsRune(t, '/') {
-		if r, ok := new(big.Rat).SetString(t); ok {
-			return ratDecimal(r)
-		}
-	}
-	return t
-}
-
-func ratDecimal(r *big.Rat) string {
-	s := r.FloatString(4)
-	if strings.Contains(s, ".") {
-		s = strings.TrimRight(strings.TrimRight(s, "0"), ".")
-	}
-	return s
-}
-
-func isInteger(s string) bool {
-	for _, r := range s {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-	return s != ""
 }
 
 func quantityOrBlank(s string) bool {

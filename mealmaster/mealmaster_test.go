@@ -114,24 +114,6 @@ func TestParseTwoColumn(t *testing.T) {
 	}
 }
 
-func TestNormalizeAmount(t *testing.T) {
-	cases := map[string]string{
-		"1/2":    "½",
-		"3/4":    "¾",
-		"1 1/2":  "1½",
-		"2":      "2",
-		"3.5":    "3.5",
-		"1/16":   "0.0625",
-		"2 1/16": "2.0625",
-		"":       "",
-	}
-	for in, want := range cases {
-		if got := normalizeAmount(in); got != want {
-			t.Errorf("normalizeAmount(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
 func TestExpandUnit(t *testing.T) {
 	cases := map[string]string{"c": "cup", "ts": "tsp", "T": "tbsp", "ea": "", "cn": "can", "zz": "zz"}
 	for in, want := range cases {
