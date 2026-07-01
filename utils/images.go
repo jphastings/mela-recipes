@@ -54,7 +54,7 @@ func (i B64Image) Optimize() (B64Image, bool, error) {
 }
 
 func (i B64Image) OptimizeWithConfig(maxWidth, maxHeight int) (B64Image, bool, error) {
-	img, imgType, err := image.Decode(bytes.NewReader(i))
+	img, imgType, err := DecodeImage(bytes.NewReader(i))
 	if err != nil {
 		return i, false, err
 	}

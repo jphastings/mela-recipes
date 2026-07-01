@@ -200,10 +200,10 @@ func withQuietStderr(fn func()) {
 	fn()
 }
 
-// safeDecodeConfig is image.DecodeConfig hardened against the panics that the
-// WASM-backed jpegli decoder raises (rather than returning an error) on malformed
-// images, so the caller can simply skip an undecodable image. Decoder chatter is
-// suppressed.
+// safeDecodeConfig reads an image header via utils.DecodeConfig (which decodes
+// JPEG/PNG with the standard library, avoiding the WASM jpegli decoder), with a
+// recover as a last-resort backstop so an undecodable image is skipped rather
+// than crashing. Decoder chatter is suppressed.
 func safeDecodeConfig(r io.Reader) (cfg image.Config, format string, err error) {
 	withQuietStderr(func() {
 		defer func() {
@@ -211,7 +211,7 @@ func safeDecodeConfig(r io.Reader) (cfg image.Config, format string, err error) 
 				err = fmt.Errorf("image decoder panicked: %v", rec)
 			}
 		}()
-		cfg, format, err = image.DecodeConfig(r)
+		cfg, format, err = utils.DecodeConfig(r)
 	})
 	return
 }
@@ -336,6 +336,17 @@ func bookIdent(e *epub.Epub) induce.BookIdent {
 	return id
 }
 
+// blankLineRuns matches a run of two or more newlines with any interspersed
+// horizontal whitespace (spaces/tabs), before or between them.
+var blankLineRuns = regexp.MustCompile(`[^\S\n]*\n[^\S\n]*(?:\n[^\S\n]*)+`)
+
+// tidyText collapses every run of two or more newlines down to a single blank
+// line and trims surrounding whitespace, so an induced description doesn't carry
+// stray blank lines from the book's markup.
+func tidyText(s string) string {
+	return strings.TrimSpace(blankLineRuns.ReplaceAllString(s, "\n\n"))
+}
+
 func toInterchange(r induce.Recipe, e *epub.Epub, filt photoFilter) formats.Recipe {
 	ir := formats.NewInterchangeRecipe()
 	ir.Title = r.Title
@@ -349,7 +360,7 @@ func toInterchange(r induce.Recipe, e *epub.Epub, filt photoFilter) formats.Reci
 			desc = r.Subtitle
 		}
 	}
-	ir.Description = desc
+	ir.Description = tidyText(desc)
 
 	for _, s := range r.Ingredients {
 		g := formats.IngredientGroup{Title: s.Title}
