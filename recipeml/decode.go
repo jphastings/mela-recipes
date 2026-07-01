@@ -123,12 +123,12 @@ func ingredientGroup(title string, ings []ing) formats.IngredientGroup {
 }
 
 // buildIngredient reconstructs "qty unit item (prep)" from the separate RecipeML
-// nodes and parses it into a structured ingredient. ASCII quantities like "1/2"
-// are normalised to a form the grammar accepts.
+// nodes and parses it into a structured ingredient. The grammar reads ASCII
+// quantities like "1/2" and "1 1/2" directly.
 func buildIngredient(in ing, order int) ingredients.IngredientUse {
 	var parts []string
 	if len(in.Amts) > 0 {
-		if a := ingredients.NormalizeAmount(cleanText(in.Amts[0].Qty)); a != "" {
+		if a := cleanText(in.Amts[0].Qty); a != "" {
 			parts = append(parts, a)
 		}
 		if u := cleanText(in.Amts[0].Unit); u != "" {

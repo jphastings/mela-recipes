@@ -22,12 +22,29 @@ String <- .+ {
   return string(c.text), nil
 }
 
-Amount <- (WordNumbers / (ff:Fraction " a"? { return ff, nil }) / Decimal / (i:Integer f:Fraction? {
-  if f != nil {
-    return new(big.Rat).Add(i.(*big.Rat), f.(*big.Rat)), nil
+Amount <- (
+  WordNumbers /
+  (i:Integer _Space af:AsciiFraction {
+    return new(big.Rat).Add(i.(*big.Rat), af.(*big.Rat)), nil
+  }) /
+  AsciiFraction /
+  (ff:Fraction " a"? { return ff, nil }) /
+  Decimal /
+  (i:Integer f:Fraction? {
+    if f != nil {
+      return new(big.Rat).Add(i.(*big.Rat), f.(*big.Rat)), nil
+    }
+    return i, nil
+  })
+)
+
+AsciiFraction <- num:Integer '/' den:Integer {
+  d := den.(*big.Rat)
+  if d.Sign() == 0 {
+    return nil, errors.New("fraction with zero denominator")
   }
-  return i, nil
-}))
+  return new(big.Rat).Quo(num.(*big.Rat), d), nil
+}
 
 WordNumbers <- (
   'a' {

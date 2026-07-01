@@ -23,6 +23,13 @@ func TestExtractIngredient(t *testing.T) {
 		{"2 carrots", "carrots", big.NewRat(2, 1), ingredients.UnitItem},
 		{"3.5 carrots", "carrots", big.NewRat(7, 2), ingredients.UnitItem},
 
+		// ASCII fractions, standalone and mixed, parse to exact rationals.
+		{"1/2 onion", "onion", big.NewRat(1, 2), ingredients.UnitItem},
+		{"1/2 cup sugar", "sugar", big.NewRat(1, 2), ingredients.UnitCup},
+		{"3/4 tsp salt", "salt", big.NewRat(3, 4), ingredients.UnitTeaspoon},
+		{"1 1/2 cups flour", "flour", big.NewRat(3, 2), ingredients.UnitCup},
+		{"1/16 tsp nutmeg", "nutmeg", big.NewRat(1, 16), ingredients.UnitTeaspoon},
+
 		{"a pinch of salt", "salt", big.NewRat(1, 1), ingredients.UnitPinch},
 		{"½ pinch of salt", "salt", big.NewRat(1, 2), ingredients.UnitPinch},
 		{"1 pinch of salt", "salt", big.NewRat(1, 1), ingredients.UnitPinch},

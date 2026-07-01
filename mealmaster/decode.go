@@ -203,13 +203,14 @@ func twoColumn(line string) (left, right string, ok bool) {
 	return left, right, true
 }
 
-// buildIngredient reconstructs a grammar-friendly "amount unit text" line —
-// converting MealMaster's ASCII fractions and 2-letter unit codes — and parses it
-// into a structured ingredient.
+// buildIngredient reconstructs an "amount unit text" line — expanding
+// MealMaster's 2-letter unit codes to words the grammar understands — and parses
+// it into a structured ingredient. The grammar reads ASCII quantities like "1/2"
+// and "1 1/2" directly.
 func buildIngredient(amount, unit, text string, order int) ingredients.IngredientUse {
 	var parts []string
-	if a := ingredients.NormalizeAmount(amount); a != "" {
-		parts = append(parts, a)
+	if amount != "" {
+		parts = append(parts, amount)
 	}
 	if u := expandUnit(unit); u != "" {
 		parts = append(parts, u)
