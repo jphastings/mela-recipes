@@ -249,6 +249,23 @@ func (StructuralLabeler) Label(units []Unit, unit UnitSpec) map[Role]FieldSpec {
 	ingPos := meanPos(ing)
 	proseCut := proseRatio * ingMed
 
+	// A distinctly-styled first (or last) ingredient often has its own class that
+	// occurs once per recipe, so it isn't a "run" — fold in such a class when it
+	// leads with a numeral (a quantity), is ingredient-length (not prose), and
+	// sits with the ingredient run (eg. a book's ingredient1 before ingredient).
+	// ingMed/ingPos above stay run-based so this outlier doesn't skew the
+	// description-vs-method split below.
+	for _, c := range infos {
+		if inIng[c.sel] || c.sel == titleSel {
+			continue
+		}
+		if c.perUnit < runPerUnit && c.numLeadAll >= ingNumFrac &&
+			c.medLen <= proseCut && absFloat(c.meanPos-ingPos) <= 0.3 {
+			ing = append(ing, c)
+			inIng[c.sel] = true
+		}
+	}
+
 	// 3. Of the rest: prose (much longer than an ingredient) before the
 	//    ingredients is the description, after them is the method; a short
 	//    once-per-recipe line before them is a subtitle.
@@ -531,6 +548,13 @@ func meanPos(cs []classInfo) float64 {
 		sum += c.meanPos
 	}
 	return sum / float64(len(cs))
+}
+
+func absFloat(x float64) float64 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 func sels(cs []classInfo) []Sel {
