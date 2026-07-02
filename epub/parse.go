@@ -236,7 +236,8 @@ func extractRecipes(e *epub.Epub, pe chan<- formats.ParseEvent) {
 		return
 	}
 
-	profile, err := induce.InduceWith(docs, bookIdent(e), modelRefiner)
+	bid := bookIdent(e)
+	profile, err := induce.InduceWith(docs, bid, modelRefiner)
 	if err != nil {
 		pe <- formats.ParseEvent{Err: fmt.Errorf("couldn't determine the book's recipe layout: %w", err)}
 		return
@@ -255,7 +256,7 @@ func extractRecipes(e *epub.Epub, pe chan<- formats.ParseEvent) {
 			}
 			continue
 		}
-		pe <- formats.ParseEvent{Recipe: toInterchange(r, e, filt), I: 1}
+		pe <- formats.ParseEvent{Recipe: toInterchange(r, e, filt, bid), I: 1}
 	}
 }
 
@@ -347,10 +348,22 @@ func tidyText(s string) string {
 	return strings.TrimSpace(blankLineRuns.ReplaceAllString(s, "\n\n"))
 }
 
-func toInterchange(r induce.Recipe, e *epub.Epub, filt photoFilter) formats.Recipe {
+// bookSource records the ePub's book as the recipe's source: the book title as
+// the name and its ISBN as a urn:isbn URI (the convention other formats already
+// read from Source).
+func bookSource(bid induce.BookIdent) formats.Source {
+	s := formats.Source{Name: bid.Title}
+	if bid.ISBN != "" {
+		s.URI = "urn:isbn:" + bid.ISBN
+	}
+	return s
+}
+
+func toInterchange(r induce.Recipe, e *epub.Epub, filt photoFilter, bid induce.BookIdent) formats.Recipe {
 	ir := formats.NewInterchangeRecipe()
 	ir.Title = r.Title
 	ir.Yield = r.Yield
+	ir.Source = bookSource(bid)
 
 	desc := r.Description
 	if r.Subtitle != "" {
