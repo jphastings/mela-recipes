@@ -43,10 +43,9 @@ func (s Sel) Matches(n *html.Node) bool {
 	if s.Tag != "" && n.Data != s.Tag {
 		return false
 	}
-	if s.Class != "" && classOf(n) != s.Class {
-		return false
-	}
-	return true
+	// An empty Class means the classless group specifically, not "any class" —
+	// otherwise a classless selector (e.g. p) would match every paragraph.
+	return classOf(n) == s.Class
 }
 
 // XPath renders the selector in the human-readable form used in profiles.
@@ -55,7 +54,7 @@ func (s Sel) XPath() string {
 	case s.Tag != "" && s.Class != "":
 		return "//" + s.Tag + "[@class='" + s.Class + "']"
 	case s.Tag != "":
-		return "//" + s.Tag
+		return "//" + s.Tag + "[not(@class)]"
 	case s.Class != "":
 		return "//*[@class='" + s.Class + "']"
 	}
