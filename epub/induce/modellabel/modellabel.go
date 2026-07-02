@@ -10,7 +10,9 @@ package modellabel
 import (
 	"context"
 	"math"
+	"sort"
 	"strings"
+	"sync"
 
 	"github.com/antchfx/htmlquery"
 	"github.com/jphastings/recipes/epub/induce"
@@ -68,6 +70,18 @@ type Labeler struct {
 	session *hugot.Session
 	emb     *pipelines.FeatureExtractionPipeline
 	roleVec map[induce.Role][]float32
+
+	// embed turns a batch of lines into embedding vectors. It wraps the model
+	// pipeline in production and is swapped for a stub in tests.
+	embed func(context.Context, []string) ([][]float32, error)
+
+	// A class's role is intrinsic to its text, not to the candidate delimiter, so
+	// each class is embedded and classified once and reused across every candidate
+	// (Label is called per candidate) — otherwise the same text is re-embedded
+	// dozens of times. The mutex also serialises the non-reentrant model session
+	// when several books are induced concurrently.
+	mu        sync.Mutex
+	roleCache map[induce.Sel]induce.Role
 }
 
 var _ induce.Labeler = (*Labeler)(nil)
@@ -95,7 +109,14 @@ func New(ctx context.Context, modelDir string) (*Labeler, error) {
 		_ = session.Destroy()
 		return nil, err
 	}
-	l := &Labeler{session: session, emb: emb, roleVec: map[induce.Role][]float32{}}
+	l := &Labeler{session: session, emb: emb, roleVec: map[induce.Role][]float32{}, roleCache: map[induce.Sel]induce.Role{}}
+	l.embed = func(ctx context.Context, texts []string) ([][]float32, error) {
+		out, err := emb.RunPipeline(ctx, texts)
+		if err != nil {
+			return nil, err
+		}
+		return out.Embeddings, nil
+	}
 	for role, exemplars := range prototypes {
 		out, err := emb.RunPipeline(ctx, exemplars)
 		if err != nil {
@@ -114,14 +135,58 @@ const (
 	embedBatch      = 32
 )
 
+type classAcc struct {
+	texts []string
+	count int
+}
+
+// classifyUncached embeds and votes a role for every eligible class not already
+// in the cache, in a single batched pass, and stores the result. Callers must
+// hold l.mu.
+func (l *Labeler) classifyUncached(eligible []induce.Sel, per map[induce.Sel]*classAcc) {
+	var texts []string
+	var owner []induce.Sel
+	for _, sel := range eligible {
+		if _, done := l.roleCache[sel]; done {
+			continue
+		}
+		for _, t := range per[sel].texts {
+			texts = append(texts, t)
+			owner = append(owner, sel)
+		}
+	}
+	if len(texts) == 0 {
+		return
+	}
+
+	votes := map[induce.Sel]map[induce.Role]int{}
+	ctx := context.Background()
+	for i := 0; i < len(texts); i += embedBatch {
+		end := i + embedBatch
+		if end > len(texts) {
+			end = len(texts)
+		}
+		vecs, err := l.embed(ctx, texts[i:end])
+		if err != nil {
+			continue
+		}
+		for j, v := range vecs {
+			sel := owner[i+j]
+			if votes[sel] == nil {
+				votes[sel] = map[induce.Role]int{}
+			}
+			votes[sel][l.nearest(v)]++
+		}
+	}
+	for sel, v := range votes {
+		l.roleCache[sel] = winner(v)
+	}
+}
+
 // Label classifies each repeated element class by the meaning of its lines and
 // distils the result into a role->selector map.
 func (l *Labeler) Label(units []induce.Unit, unit induce.UnitSpec) map[induce.Role]induce.FieldSpec {
-	type acc struct {
-		texts []string
-		count int
-	}
-	per := map[induce.Sel]*acc{}
+	per := map[induce.Sel]*classAcc{}
 	for _, u := range units {
 		for _, b := range u.Blocks {
 			t := normText(b)
@@ -131,7 +196,7 @@ func (l *Labeler) Label(units []induce.Unit, unit induce.UnitSpec) map[induce.Ro
 			sel := induce.Sel{Tag: b.Data, Class: classOf(b)}
 			a := per[sel]
 			if a == nil {
-				a = &acc{}
+				a = &classAcc{}
 				per[sel] = a
 			}
 			a.count++
@@ -145,41 +210,30 @@ func (l *Labeler) Label(units []induce.Unit, unit induce.UnitSpec) map[induce.Ro
 		minOccur = 2
 	}
 
-	// Embed all sampled lines in batches, then majority-vote a role per class.
-	var texts []string
-	var owner []induce.Sel
+	// Classes eligible to be a field in this candidate's segmentation.
+	var eligible []induce.Sel
 	for sel, a := range per {
-		if a.count < minOccur {
-			continue
-		}
-		for _, t := range a.texts {
-			texts = append(texts, t)
-			owner = append(owner, sel)
-		}
-	}
-	votes := map[induce.Sel]map[induce.Role]int{}
-	ctx := context.Background()
-	for i := 0; i < len(texts); i += embedBatch {
-		end := i + embedBatch
-		if end > len(texts) {
-			end = len(texts)
-		}
-		out, err := l.emb.RunPipeline(ctx, texts[i:end])
-		if err != nil {
-			continue
-		}
-		for j, v := range out.Embeddings {
-			sel := owner[i+j]
-			if votes[sel] == nil {
-				votes[sel] = map[induce.Role]int{}
-			}
-			votes[sel][l.nearest(v)]++
+		if a.count >= minOccur {
+			eligible = append(eligible, sel)
 		}
 	}
 
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.classifyUncached(eligible, per)
+
 	byRole := map[induce.Role][]induce.Sel{}
-	for sel, v := range votes {
-		byRole[winner(v)] = append(byRole[winner(v)], sel)
+	for _, sel := range eligible {
+		byRole[l.roleCache[sel]] = append(byRole[l.roleCache[sel]], sel)
+	}
+	for _, sels := range byRole {
+		sort.Slice(sels, func(i, j int) bool {
+			if sels[i].Tag != sels[j].Tag {
+				return sels[i].Tag < sels[j].Tag
+			}
+			return sels[i].Class < sels[j].Class
+		})
 	}
 
 	fields := map[induce.Role]induce.FieldSpec{}
