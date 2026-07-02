@@ -32,7 +32,7 @@ func ImportRecipe(r formats.Recipe) (formats.Recipe, error) {
 	pr := &Recipe{
 		filename: formats.WithoutExt(r.Filename()),
 		UID:      uid,
-		Title:    ir.Title,
+		Title:    ir.DisplayTitle(),
 		// TODO: Source / SourceURL
 		Description: ir.Description,
 		Notes:       ir.Notes,

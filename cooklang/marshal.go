@@ -189,7 +189,7 @@ type frontmatter struct {
 
 func marshalFrontmatter(ir formats.InterchangeRecipe) ([]byte, error) {
 	fm := frontmatter{
-		Title:       ir.Title,
+		Title:       ir.DisplayTitle(),
 		Description: ir.Description,
 		SourceName:  ir.Source.Name,
 		SourceURL:   ir.Source.URI,

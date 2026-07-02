@@ -362,18 +362,10 @@ func bookSource(bid induce.BookIdent) formats.Source {
 func toInterchange(r induce.Recipe, e *epub.Epub, filt photoFilter, bid induce.BookIdent) formats.Recipe {
 	ir := formats.NewInterchangeRecipe()
 	ir.Title = r.Title
+	ir.Subtitle = r.Subtitle
 	ir.Yield = r.Yield
 	ir.Source = bookSource(bid)
-
-	desc := r.Description
-	if r.Subtitle != "" {
-		if desc != "" {
-			desc = r.Subtitle + "\n\n" + desc
-		} else {
-			desc = r.Subtitle
-		}
-	}
-	ir.Description = tidyText(desc)
+	ir.Description = tidyText(r.Description)
 
 	for _, s := range r.Ingredients {
 		g := formats.IngredientGroup{Title: s.Title}

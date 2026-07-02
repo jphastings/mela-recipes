@@ -157,7 +157,14 @@ func (p *Profile) buildRecipe(u Unit) Recipe {
 		r.Title = textExcluding(titleNode, strip)
 	}
 	if subtitleNode != nil {
-		r.Subtitle = textExcluding(subtitleNode, strip)
+		st := textExcluding(subtitleNode, strip)
+		// A once-per-recipe line before the ingredients that carries a number
+		// ("Makes 56", "Serves 4") is a yield, not a translated-name subtitle.
+		if hasNumeral(st) && runeLen(st) <= 40 {
+			r.Yield = yieldValue(st)
+		} else {
+			r.Subtitle = st
+		}
 	}
 
 	// Interpretation: marker -> category (operating on already-captured nodes).

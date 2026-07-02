@@ -15,7 +15,7 @@ import (
 func writeMarkdown(w io.Writer, ir formats.InterchangeRecipe) error {
 	var b strings.Builder
 
-	fmt.Fprintf(&b, "# %s\n", ir.Title)
+	fmt.Fprintf(&b, "# %s\n", ir.DisplayTitle())
 
 	if ir.Description != "" {
 		fmt.Fprintf(&b, "\n%s\n", ir.Description)

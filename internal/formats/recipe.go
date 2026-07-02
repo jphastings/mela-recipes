@@ -38,6 +38,7 @@ type InterchangeRecipe struct {
 	filename     string
 	ID           string
 	Title        string
+	Subtitle     string
 	Description  string
 	Yield        string
 	Ingredients  []IngredientGroup
@@ -78,6 +79,16 @@ type IngredientGroup struct {
 type Source struct {
 	Name string
 	URI  string
+}
+
+// DisplayTitle renders the recipe's name for formats with a single title field:
+// a recipe with both a native title and a translated/generic name (Subtitle)
+// reads as "Title (Subtitle)", eg. "Abricotines (Apricot Balls)".
+func (ir InterchangeRecipe) DisplayTitle() string {
+	if ir.Subtitle != "" {
+		return ir.Title + " (" + ir.Subtitle + ")"
+	}
+	return ir.Title
 }
 
 func (ir InterchangeRecipe) Filename() string                   { return ir.filename }

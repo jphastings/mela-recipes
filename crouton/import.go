@@ -24,7 +24,7 @@ func importRecipe(r formats.Recipe) (formats.Recipe, error) {
 	cr := &Recipe{
 		filename:        formats.WithoutExt(r.Filename()),
 		UUID:            importUUID(ir),
-		RecipeName:      ir.Title,
+		RecipeName:      ir.DisplayTitle(),
 		SourceName:      ir.Source.Name,
 		WebLink:         Link(ir.Source.URI),
 		Notes:           ir.Notes,

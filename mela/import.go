@@ -33,7 +33,7 @@ func ImportRecipe(r formats.Recipe) (formats.Recipe, error) {
 	mr := &Recipe{
 		filename:     formats.WithoutExt(r.Filename()),
 		ID:           id,
-		Title:        ir.Title,
+		Title:        ir.DisplayTitle(),
 		Link:         ir.Source.URI,
 		Text:         melaText(ir.Description),
 		Ingredients:  formats.IngredientsToSectioned(ir.Ingredients),
